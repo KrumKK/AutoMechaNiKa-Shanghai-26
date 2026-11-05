@@ -403,7 +403,7 @@
     const tile = (n, t, c) => `<div class="card kpi ${c}"><b>${n}</b><span>${t}</span></div>`;
     return `
       <section>
-        <div class="sec-head"><h2>📊 Resumen</h2><button class="btn soft" data-accion="exportar">📤 Excel</button></div>
+        <div class="sec-head"><h2>📊 Resumen</h2><span class="btns-fila"><button class="btn soft" data-accion="word">📄 Word</button><button class="btn soft" data-accion="exportar">📤 Excel</button></span></div>
         <div class="kpis">
           ${tile(f.length, 'empresas en la feria', 'azul')}
           ${tile(f.filter(esImportante).length, 'importantes', 'rosa')}
@@ -753,6 +753,7 @@
     const m = abrirModal(`
       <div class="menu">
         <div class="editor-head"><h2>Opciones</h2><button class="icon-btn" data-cerrar>✕</button></div>
+        <button class="menu-item" data-m="word">📄 Exportar informe a Word</button>
         <button class="menu-item" data-m="exportar">📤 Exportar todo a Excel</button>
         <label class="menu-item">📥 Importar desde Excel<input type="file" accept=".xlsx,.xls,.csv" data-m="importar" hidden></label>
         <button class="menu-item" data-m="actualizar">🔄 Actualizar app</button>
@@ -763,6 +764,7 @@
           <br>Versión ${esc(CFG.VERSION)}</p>
       </div>`);
     m.querySelector('[data-m=exportar]').addEventListener('click', () => { cerrarModal(true); exportarExcel(); });
+    m.querySelector('[data-m=word]').addEventListener('click', () => { cerrarModal(true); dialogoWord(); });
     m.querySelector('[data-m=salir]').addEventListener('click', salir);
     m.querySelector('[data-m=actualizar]').addEventListener('click', async () => {
       try { const ks = await caches.keys(); await Promise.all(ks.map(k => caches.delete(k))); } catch (e) { /* nada */ }
@@ -798,10 +800,83 @@
     else if (d.present) abrirPresentacion(d.present);
     else if (d.accion === 'menu') abrirMenu();
     else if (d.accion === 'exportar') exportarExcel();
+    else if (d.accion === 'word') dialogoWord();
     else if (d.accion === 'offline') guardarOffline();
   });
 
   // ═══════════ Excel ═══════════
+  // ═══════════ Informe Word ═══════════
+  function cargarScript(src, comprobar) {
+    if (comprobar()) return Promise.resolve();
+    return new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = res;
+      s.onerror = () => rej(new Error('No se pudo cargar ' + src + '. Comprueba la conexión.'));
+      document.head.appendChild(s);
+    });
+  }
+
+  const tieneContenido = e => e.visitado || CFG.USUARIOS.some(u => (bloque(e, u).texto || '').trim() || (bloque(e, u).fotos || []).length);
+
+  function dialogoWord() {
+    const todas = state.empresas.length;
+    const conContenido = state.empresas.filter(tieneContenido).length;
+    const m = abrirModal(`
+      <form class="editor" id="form-word">
+        <div class="editor-head"><h2>📄 Informe en Word</h2><button type="button" class="icon-btn" data-cerrar>✕</button></div>
+        <p class="muted espacio">Portada, organización del viaje y una ficha por empresa con los datos, la preparación y las notas y fotos de ${esc(CFG.USUARIOS.join(' y '))}.</p>
+        <div class="campo"><span class="lbl">Empresas</span>
+          <div class="seg form-seg">
+            <label><input type="radio" name="alcance" value="contenido" ${conContenido ? 'checked' : ''}><span>Con notas, fotos o visitadas (${conContenido})</span></label>
+            <label><input type="radio" name="alcance" value="todas" ${conContenido ? '' : 'checked'}><span>Todas (${todas})</span></label>
+          </div>
+        </div>
+        <label class="campo check-campo"><input type="checkbox" name="fotos" checked><span>Incluir fotos</span></label>
+        ${store.modo === 'sharepoint' ? '<p class="nota-info">Además de descargarse, se guarda una copia en APP VIAJE CHINA › informes.</p>' : ''}
+        <div class="pie"><span></span><button type="submit" class="btn primary">Generar informe</button></div>
+      </form>`);
+    m.querySelector('form').addEventListener('submit', ev => {
+      ev.preventDefault();
+      const fd = new FormData(ev.target);
+      cerrarModal(true);
+      exportarWord(fd.get('alcance') === 'todas', fd.get('fotos') === 'on');
+    });
+  }
+
+  async function exportarWord(todas, incluirFotos) {
+    toast('Preparando el informe…');
+    try {
+      await cargarScript('vendor/docx.min.js', () => !!window.docx);
+      await cargarScript('word-export.js', () => !!window.generarInformeWord);
+    } catch (e) { toast(e.message); return; }
+    const filtro = e => todas || tieneContenido(e);
+    const feriaOrden = calcularRuta().map(({ orden, e }) => Object.assign({ orden }, e)).filter(filtro);
+    const vis = visitas().filter(filtro).sort((a, b) => nat((a.fecha || '9') + (a.hora || ''), (b.fecha || '9') + (b.hora || '')) || nat(a.nombre, b.nombre));
+    let ultimo = 0;
+    try {
+      const { blob, nombre } = await window.generarInformeWord({
+        CFG, usuario: state.user, viaje: state.viaje, feria: feriaOrden, visitas: vis, incluirFotos,
+        leerFoto: ruta => store.leerFoto(ruta),
+        progreso: (i, n) => { if (i - ultimo >= 10) { ultimo = i; toast('Preparando el informe… ' + i + ' de ' + n); } }
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = nombre;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      if (store.modo === 'sharepoint') {
+        try {
+          await store.guardarArchivo('informes/' + nombre, blob);
+          toast('Informe descargado y guardado en APP VIAJE CHINA › informes');
+        } catch (e) { toast('Informe descargado. No se pudo guardar la copia en SharePoint.'); }
+      } else toast('Informe descargado');
+    } catch (e) {
+      console.error(e);
+      toast('No se pudo generar el informe: ' + e.message);
+    }
+  }
+
   function cargarXLSX() {
     if (window.XLSX) return Promise.resolve();
     return new Promise((res, rej) => {

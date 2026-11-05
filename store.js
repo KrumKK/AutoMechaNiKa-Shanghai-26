@@ -91,6 +91,7 @@
       async leerFoto(ruta) { return (await idb.get('fotos', ruta)) || null; },
       async borrarFoto(ruta) { await idb.del('fotos', ruta); },
       async sincronizar() { return false; },
+      async guardarArchivo() { return null; },
       hayPendientes: async () => false
     };
   }
@@ -115,7 +116,7 @@
 
     async function graph(ruta, opciones) {
       const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 20000);
+      const t = setTimeout(() => ctrl.abort(), (opciones && opciones.espera) || 20000);
       try {
         const tk = await obtenerToken();
         const o = Object.assign({}, opciones || {}, { signal: ctrl.signal });
@@ -161,7 +162,8 @@
     async function escribirRemoto(ruta, cuerpo, tipo) {
       const r = await graph(rutaArchivo(ruta) + ':/content', {
         method: 'PUT', headers: { 'Content-Type': tipo || 'application/json' },
-        body: tipo ? cuerpo : JSON.stringify(cuerpo)
+        body: tipo ? cuerpo : JSON.stringify(cuerpo),
+        espera: tipo ? 120000 : 20000 // fotos y documentos: más margen con mala conexión
       });
       if (!r.ok) throw new Error('Escritura HTTP ' + r.status);
       return r.json().catch(() => null);
@@ -282,6 +284,12 @@
         } catch (e) { return null; }
       },
       async borrarFoto(ruta) { await idb.del('fotos', ruta); await encolar({ tipo: 'borrar', ruta }); },
+      // Guarda directamente un archivo (p. ej. el informe Word) y devuelve su enlace
+      async guardarArchivo(ruta, blob) {
+        await prepararDrive();
+        const info = await escribirRemoto(ruta, blob, blob.type || 'application/octet-stream');
+        return info && info.webUrl;
+      },
       hayPendientes: async () => (await idb.keys('cola')).length > 0
     };
   }

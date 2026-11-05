@@ -303,3 +303,6 @@ textarea[readonly] { background: rgba(255, 255, 255, .6); color: var(--soft); }
 .prep-tit { font-weight: 700; }
 .prep-fila .lbl { color: #8A6A1F; margin-bottom: 1px; }
 .badge.azul { background: var(--azul); color: #2D4A5E; }
+.btns-fila { display: flex; gap: 6px; }
+.form-seg { flex-wrap: wrap; }
+.form-seg label { min-width: 140px; }

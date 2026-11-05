@@ -4,13 +4,14 @@
  * El vídeo y SharePoint no pasan por aquí. */
 'use strict';
 
-const CACHE = 'ams26-v4';
+const CACHE = 'ams26-v5';
 const APP = [
   './', 'index.html', 'styles.css', 'config.js', 'store.js', 'app.js',
   'presentations-slides-manifest.js', 'manifest.webmanifest', 'icon.svg', 'lizarte-logo.png',
   'icons/icon-192.png', 'icons/apple-touch-icon.png', 'vendor/xlsx.mini.min.js',
   'fonts/dm-sans-latin-400-normal.woff2', 'fonts/dm-sans-latin-500-normal.woff2',
-  'fonts/dm-sans-latin-600-normal.woff2', 'fonts/dm-sans-latin-700-normal.woff2'
+  'fonts/dm-sans-latin-600-normal.woff2', 'fonts/dm-sans-latin-700-normal.woff2',
+  'vendor/docx.min.js', 'word-export.js'
 ];
 
 self.addEventListener('install', e => {
