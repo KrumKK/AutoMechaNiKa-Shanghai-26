@@ -16,7 +16,7 @@ App móvil (PWA) para preparar y seguir la visita a Automechanika Shanghai 2026 
 
 ## Usuarios
 
-Krum y Scrum. Cada uno escribe en su propio bloque de notas y fotos y ve el del otro en solo lectura.
+Krum y Óscar. Cada uno escribe en su propio bloque de notas y fotos y ve el del otro en solo lectura.
 La contraseña de cada usuario se crea la primera vez que entra en cada dispositivo.
 
 ## Dónde se guardan los datos

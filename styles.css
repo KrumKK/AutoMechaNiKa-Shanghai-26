@@ -298,3 +298,8 @@ textarea[readonly] { background: rgba(255, 255, 255, .6); color: var(--soft); }
   transition: all .25s; max-width: calc(100% - 32px); text-align: center;
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
+.login-titulo { text-align: center; font-family: var(--serif); font-size: 26px; color: var(--text); margin: 4px 0 4px; }
+.prep { background: var(--crema); border: 1px solid #F1DFA8; border-radius: 14px; padding: 12px; margin-bottom: 12px; display: grid; gap: 8px; font-size: 14px; }
+.prep-tit { font-weight: 700; }
+.prep-fila .lbl { color: #8A6A1F; margin-bottom: 1px; }
+.badge.azul { background: var(--azul); color: #2D4A5E; }

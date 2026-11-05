@@ -99,6 +99,7 @@
       <div class="login">
         <div class="login-card">
           <img src="lizarte-logo.png" alt="Lizarte" class="login-logo" width="335" height="96">
+          <p class="login-titulo">${esc(CFG.TITULO || '')}</p>
           <p class="login-mision">Automechanika Shanghai · 2 al 5 de diciembre de 2026</p>
           <p class="login-sub">Acceso Lizarte · ${store.modo === 'sharepoint' ? 'sincronización SharePoint' : 'datos en este dispositivo'}</p>
           <div class="login-users">
@@ -291,8 +292,9 @@
         ${e.nombreZh ? `<span class="zh">${esc(e.nombreZh)}</span>` : ''}
         <span class="muted">${linea}</span>
         ${e.contacto ? `<span class="muted small">👤 ${esc(e.contacto)}${e.rol ? ' · ' + esc(e.rol) : ''}</span>` : ''}
+        ${e.ciudad && e.tipo !== 'visita' ? `<span class="muted small">📍 ${esc(e.ciudad)}${e.pais && e.pais !== 'China' ? ', ' + esc(e.pais) : ''}</span>` : ''}
         ${resumen ? `<span class="extracto">${esc(resumen.slice(0, 140))}${resumen.length > 140 ? '…' : ''}</span>` : ''}
-        <span class="tags">${e.tipo !== 'visita' ? `<span class="badge ${esImportante(e) ? 'rosa' : 'crema'}">${esImportante(e) ? '⭐ Importante' : 'Menos importante'}</span>` : '<span class="badge lila">🏢 Visita</span>'}${marcasEmpresa(e)}</span>
+        <span class="tags">${e.tipo !== 'visita' ? `<span class="badge ${esImportante(e) ? 'rosa' : 'crema'}">${esImportante(e) ? '⭐ Importante' : 'Menos importante'}</span>` : '<span class="badge lila">🏢 Visita</span>'}${e.prep && e.prep.criterio ? `<span class="badge azul">Criterio ${esc(e.prep.criterio)}</span>` : ''}${marcasEmpresa(e)}</span>
       </button>`;
   }
 
@@ -339,7 +341,9 @@
 
   // ═══════════ Ruta optimizada de stands ═══════════
   function calcularRuta() {
-    const ordenados = feria().sort((a, b) => nat(a.pabellon, b.pabellon) || nat(a.stand, b.stand) || nat(a.nombre, b.nombre));
+    const orden = CFG.ORDEN_PABELLONES || [];
+    const idx = p => { const i = orden.indexOf(String(p || '').trim()); return i < 0 ? orden.length : i; };
+    const ordenados = feria().sort((a, b) => (idx(a.pabellon) - idx(b.pabellon)) || nat(a.pabellon, b.pabellon) || nat(a.stand, b.stand) || nat(a.nombre, b.nombre));
     const ruta = state.modoRuta === 'importantes' ? [...ordenados.filter(esImportante), ...ordenados.filter(e => !esImportante(e))] : ordenados;
     return ruta.map((e, i) => ({ orden: i + 1, e }));
   }
@@ -571,6 +575,18 @@
   }
 
   // ═══════════ Ficha de empresa (datos compartidos + bloque de cada usuario con texto y fotos) ═══════════
+  // Datos de la preparación (Excel de empresas confirmadas): solo lectura
+  const CRITERIOS = { A: 'Cremalleras / cajas hidráulicas', B: 'EPS', C: 'Refabrica recambios' };
+  function prepHTML(e) {
+    const p = e.prep;
+    if (!p) return '';
+    const crit = (p.criterio || '').replace(/\b([ABC])\b/g, (m, l) => l + ' (' + CRITERIOS[l] + ')');
+    const filas = [['Criterio', crit], ['Evidencia en la ficha', p.evidencia], ['Aparece en', p.apareceEn], ['Prioridad ruta Óscar', p.prioridadOscar], ['Observaciones', p.observaciones]]
+      .filter(([, v]) => v && v !== '—');
+    return filas.length ? `<div class="prep"><div class="prep-tit">📋 Preparación (fichero KKK y OH)</div>
+      ${filas.map(([k, v]) => `<div class="prep-fila"><span class="lbl">${esc(k)}</span><span>${esc(v)}</span></div>`).join('')}</div>` : '';
+  }
+
   function abrirFicha(id, tipoNuevo) {
     const e = id ? empresaPorId(id) : null;
     const tipo = e ? (e.tipo === 'visita' ? 'visita' : 'feria') : tipoNuevo;
@@ -579,7 +595,9 @@
     const propios = tipo === 'feria'
       ? [{ k: 'pabellon', label: 'Pabellón', ph: '5.1', half: true }, { k: 'stand', label: 'Stand', ph: 'A23', half: true }]
       : [{ k: 'ciudad', label: 'Ciudad', ph: 'Shanghái' }, { k: 'fecha', label: 'Fecha', type: 'date', half: true }, { k: 'hora', label: 'Hora', type: 'time', half: true }, { k: 'direccion', label: 'Dirección' }];
-    const contacto = [{ k: 'contacto', label: 'Persona de contacto', ph: 'Ej: Wang Li', half: true }, { k: 'rol', label: 'Rol', ph: 'Ej: Director comercial', half: true }, { k: 'web', label: 'Web o WeChat', ph: 'www…' }];
+    const contacto = [{ k: 'contacto', label: 'Persona de contacto', ph: 'Ej: Wang Li', half: true }, { k: 'rol', label: 'Rol', ph: 'Ej: Director comercial', half: true },
+      { k: 'email', label: 'Email', type: 'email', half: true }, { k: 'telefono', label: 'Teléfono', type: 'tel', half: true }, { k: 'web', label: 'Web o WeChat', ph: 'www…' }];
+    if (tipo === 'feria') propios.push({ k: 'ciudad', label: 'Ciudad', half: true }, { k: 'pais', label: 'País', half: true });
     const opciones = (nombre, val, ops) => `<div class="seg form-seg">${ops.map(([k, t]) => `<label><input type="radio" name="${nombre}" value="${k}" ${val === k ? 'checked' : ''}><span>${t}</span></label>`).join('')}</div>`;
 
     const m = abrirModal(`
@@ -592,6 +610,7 @@
           ${contacto.map(c => campoHTML(c, v)).join('')}
           <label class="campo check-campo"><input type="checkbox" name="visitado" ${v.visitado ? 'checked' : ''}><span>Ya visitada</span></label>
         </div>
+        ${prepHTML(v)}
         ${e ? CFG.USUARIOS.map(u => bloqueUsuarioHTML(e, u)).join('') : '<p class="nota-info">Guarda la ficha para poder escribir notas y subir fotos.</p>'}
         <div class="pie">
           ${e ? '<button type="button" class="btn peligro" data-borrar>Eliminar ficha</button>' : '<span></span>'}
@@ -825,24 +844,34 @@
   }
   const txt = v => String(v == null ? '' : v).trim();
 
+  // La fila de cabecera puede no ser la primera (títulos encima): se busca entre las 15 primeras
   function leerHoja(ws, mapa) {
-    return window.XLSX.utils.sheet_to_json(ws, { defval: '', raw: true }).map(fila => {
+    const filas = window.XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true });
+    const campoDe = cab => {
+      const n = norm(cab);
+      if (!n) return null;
+      for (const [campo, alias] of Object.entries(mapa)) if (alias.some(a => n === a || n.startsWith(a))) return campo;
+      return null;
+    };
+    let h = 0, mejor = 0;
+    for (let i = 0; i < Math.min(15, filas.length); i++) {
+      const n = filas[i].filter(c => campoDe(c)).length;
+      if (n > mejor) { mejor = n; h = i; }
+    }
+    const campos = (filas[h] || []).map(campoDe);
+    return filas.slice(h + 1).map(f => {
       const out = {};
-      Object.keys(fila).forEach(col => {
-        const n = norm(col);
-        for (const [campo, alias] of Object.entries(mapa)) {
-          if (out[campo] === undefined && alias.some(a => n === a || n.startsWith(a))) { out[campo] = fila[col]; break; }
-        }
-      });
+      campos.forEach((c, j) => { if (c && out[c] === undefined) out[c] = f[j]; });
       return out;
     }).filter(o => Object.values(o).some(v => txt(v) !== ''));
   }
 
   const MAPA_EMPRESA = {
     nombreZh: ['nombre chino', 'nombre en chino', 'chino', '中文'], nombre: ['empresa', 'expositor', 'compania', 'company', 'nombre'],
-    pabellon: ['pabellon', 'hall', 'nave'], stand: ['stand', 'booth'], categoria: ['categoria', 'prioridad', 'importancia'],
-    ciudad: ['ciudad'], fecha: ['fecha', 'dia'], hora: ['hora'], direccion: ['direccion'], contacto: ['contacto', 'persona'], rol: ['rol', 'cargo'],
-    web: ['web', 'wechat'], visitado: ['visitado'], tipo: ['tipo']
+    pabellon: ['pabellon', 'hall', 'nave'], stand: ['stand', 'booth'], prioridadOscar: ['prioridad ruta'], categoria: ['categoria', 'prioridad', 'importancia'],
+    criterio: ['criterio'], evidencia: ['evidencia'], apareceEn: ['aparece en'], observaciones: ['observaciones', 'comentarios'],
+    pais: ['pais'], ciudad: ['ciudad'], fecha: ['fecha', 'dia'], hora: ['hora'], direccion: ['direccion'], contacto: ['contacto', 'persona'], rol: ['rol', 'cargo'],
+    email: ['email', 'correo', 'e-mail'], telefono: ['telefono', 'tel'], web: ['web', 'wechat'], visitado: ['visitado'], tipo: ['tipo']
   };
 
   async function importarExcel(file) {
@@ -870,9 +899,17 @@
       const t = norm(r.tipo);
       const tipo = tipoHoja || (t.startsWith('visit') ? 'visita' : t ? 'feria' : (txt(r.pabellon) || txt(r.stand) ? 'feria' : (txt(r.ciudad) ? 'visita' : 'feria')));
       const cat = norm(r.categoria);
-      const d = { tipo, nombre: txt(r.nombre), nombreZh: txt(r.nombreZh), contacto: txt(r.contacto), rol: txt(r.rol), web: txt(r.web) };
-      if (tipo === 'feria') { d.pabellon = txt(r.pabellon); d.stand = txt(r.stand); d.categoria = (cat.startsWith('menos') || cat.startsWith('secund') || cat === 'baja' || cat === 'b' || cat === '2') ? 'secundario' : 'importante'; }
-      else { d.ciudad = txt(r.ciudad); d.fecha = aFecha(r.fecha); d.hora = aHora(r.hora); d.direccion = txt(r.direccion); }
+      const d = { tipo, nombre: txt(r.nombre), nombreZh: txt(r.nombreZh), contacto: txt(r.contacto), rol: txt(r.rol), web: txt(r.web),
+        email: txt(r.email), telefono: txt(r.telefono), pais: txt(r.pais), ciudad: txt(r.ciudad) };
+      const prep = { criterio: txt(r.criterio), evidencia: txt(r.evidencia), apareceEn: txt(r.apareceEn), prioridadOscar: txt(r.prioridadOscar), observaciones: txt(r.observaciones) };
+      if (Object.values(prep).some(Boolean)) d.prep = prep;
+      if (tipo === 'feria') {
+        d.pabellon = txt(r.pabellon); d.stand = txt(r.stand);
+        // Sin columna de categoría: importante si el criterio es A (cremalleras/hidráulica) o B (EPS)
+        d.categoria = cat ? ((cat.startsWith('menos') || cat.startsWith('secund') || cat === 'baja' || cat === 'b' || cat === '2') ? 'secundario' : 'importante')
+          : (prep.criterio ? (/\b[AB]\b/.test(prep.criterio) ? 'importante' : 'secundario') : 'importante');
+      }
+      else { d.fecha = aFecha(r.fecha); d.hora = aHora(r.hora); d.direccion = txt(r.direccion); }
       if (r.visitado !== undefined && txt(r.visitado)) d.visitado = ['si', 'x', 'true', '1', 'yes'].includes(norm(r.visitado));
       empresas.push(d);
     }));

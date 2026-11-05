@@ -2,7 +2,7 @@
  *
  * La app trabaja con "documentos" JSON (viaje.json, empresas/<id>.json) y fotos.
  * Cada documento tiene campos compartidos y un bloque por usuario:
- *   { ...compartidos, usuarios: { Krum: {...}, Scrum: {...} } }
+ *   { ...compartidos, usuarios: { Krum: {...}, Óscar: {...} } }
  * Cada usuario solo escribe en su bloque; el del otro se lee.
  *
  * Dos modos con las mismas funciones:
@@ -126,6 +126,7 @@
 
     async function prepararDrive() {
       if (driveId) return driveId;
+      if (sp.driveId) { driveId = sp.driveId; return driveId; }
       const guardado = await idb.get('meta', 'driveId');
       try {
         const site = await (await graph('/sites/' + sp.siteHost + ':' + sp.sitePath)).json();
@@ -139,7 +140,16 @@
       return driveId;
     }
 
-    const rutaArchivo = ruta => '/drives/' + driveId + '/root:/' + sp.carpeta + '/' + ruta.split('/').map(encodeURIComponent).join('/');
+    const cod = r => r.split('/').filter(Boolean).map(encodeURIComponent).join('/');
+    // La carpeta se puede indicar por su id (más robusto) o por su ruta dentro de la biblioteca
+    const rutaArchivo = ruta => sp.carpetaId
+      ? '/drives/' + driveId + '/items/' + sp.carpetaId + ':/' + cod(ruta)
+      : '/drives/' + driveId + '/root:/' + cod(sp.carpeta + '/' + ruta);
+    const rutaHijos = prefijo => {
+      const sub = (prefijo || '').replace(/\/$/, '');
+      if (sp.carpetaId) return '/drives/' + driveId + '/items/' + sp.carpetaId + (sub ? ':/' + cod(sub) + ':' : '') + '/children';
+      return '/drives/' + driveId + '/root:/' + cod(sp.carpeta + (sub ? '/' + sub : '')) + ':/children';
+    };
 
     async function leerRemoto(ruta) {
       const r = await graph(rutaArchivo(ruta) + ':/content');
@@ -194,7 +204,7 @@
         }
         estado({ tipo: 'ok', texto: 'SharePoint: sincronizado' });
       } catch (e) {
-        estado({ tipo: 'aviso', texto: 'Sin conexión · se enviará al volver la cobertura' });
+        estado(navigator.onLine ? { tipo: 'aviso', texto: 'SharePoint: ' + e.message + ' · reintentando' } : { tipo: 'aviso', texto: 'Sin conexión · se enviará al volver la cobertura' });
       } finally { enviando = false; }
     }
 
@@ -203,8 +213,7 @@
 
     // Descarga solo los documentos que han cambiado (por eTag)
     async function sincronizarCarpeta(prefijo) {
-      const carpeta = sp.carpeta + (prefijo ? '/' + prefijo.replace(/\/$/, '') : '');
-      const r = await graph('/drives/' + driveId + '/root:/' + carpeta.split('/').map(encodeURIComponent).join('/') + ':/children?$select=name,eTag,file&$top=999');
+      const r = await graph(rutaHijos(prefijo) + '?$select=name,eTag,file&$top=999');
       if (r.status === 404) return new Set();
       if (!r.ok) throw new Error('Listado HTTP ' + r.status);
       const items = ((await r.json()).value || []).filter(i => i.file && /\.json$/i.test(i.name));
@@ -241,7 +250,7 @@
           estado({ tipo: 'ok', texto: 'SharePoint: sincronizado' });
           return true;
         } catch (e) {
-          estado({ tipo: 'aviso', texto: 'Sin conexión · mostrando la última copia' });
+          estado({ tipo: 'aviso', texto: navigator.onLine ? 'SharePoint: ' + e.message : 'Sin conexión · mostrando la última copia' });
           return false;
         }
       },

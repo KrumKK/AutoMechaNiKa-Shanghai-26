@@ -23,7 +23,7 @@ Cada JSON tiene campos compartidos y un bloque por usuario:
   "categoria": "importante", "visitado": false,
   "usuarios": {
     "Krum":  { "texto": "…", "fotos": [{ "ruta": "fotos/…/Krum-….jpg", "fecha": "…" }] },
-    "Scrum": { "texto": "…", "fotos": [] }
+    "Óscar": { "texto": "…", "fotos": [] }
   }
 }
 ```
