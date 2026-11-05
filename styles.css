@@ -306,3 +306,6 @@ textarea[readonly] { background: rgba(255, 255, 255, .6); color: var(--soft); }
 .btns-fila { display: flex; gap: 6px; }
 .form-seg { flex-wrap: wrap; }
 .form-seg label { min-width: 140px; }
+.aviso-ok { background: #E8F8F0; border: 1px solid #8DD4B0; color: #1F7A55; border-radius: 10px; padding: 10px 12px; font-size: 14px; font-weight: 600; }
+.aviso-err { background: #FFF0E8; border: 1px solid #F2C3A6; color: #9A5634; border-radius: 10px; padding: 10px 12px; font-size: 14px; font-weight: 600; }
+a.menu-item { text-decoration: none; color: inherit; }

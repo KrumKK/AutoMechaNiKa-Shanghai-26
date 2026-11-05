@@ -860,21 +860,52 @@
         leerFoto: ruta => store.leerFoto(ruta),
         progreso: (i, n) => { if (i - ultimo >= 10) { ultimo = i; toast('Preparando el informe… ' + i + ' de ' + n); } }
       });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = nombre;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
-      if (store.modo === 'sharepoint') {
-        try {
-          await store.guardarArchivo('informes/' + nombre, blob);
-          toast('Informe descargado y guardado en APP VIAJE CHINA › informes');
-        } catch (e) { toast('Informe descargado. No se pudo guardar la copia en SharePoint.'); }
-      } else toast('Informe descargado');
+      resultadoWord(blob, nombre);
     } catch (e) {
       console.error(e);
       toast('No se pudo generar el informe: ' + e.message);
     }
+  }
+
+  // Primero se guarda en OneDrive; después se ofrece enviar o descargar.
+  // (En el móvil, descargar abre la hoja de compartir y la app deja de ejecutarse.)
+  async function resultadoWord(blob, nombre) {
+    let enlace = null, error = null;
+    if (store.modo === 'sharepoint') {
+      toast('Guardando el informe en OneDrive…');
+      try { enlace = await store.guardarArchivo('informes/' + nombre, blob); }
+      catch (e) { error = e.message || 'error desconocido'; }
+    }
+    const estado = store.modo !== 'sharepoint'
+      ? '<p class="nota-info">Informe generado. Los datos están solo en este dispositivo, así que no se guarda copia en OneDrive.</p>'
+      : (error
+        ? `<p class="aviso-err">⚠️ No se pudo guardar en OneDrive (${esc(error)}). Comprueba la conexión y pulsa Reintentar.</p>`
+        : '<p class="aviso-ok">✓ Guardado en APP VIAJE CHINA › informes. En el PC aparecerá en esa carpeta en un par de minutos.</p>');
+    const puedeCompartir = (() => { try { return !!(navigator.canShare && navigator.canShare({ files: [new File([blob], nombre, { type: blob.type })] })); } catch (e) { return false; } })();
+    const m = abrirModal(`
+      <div class="menu">
+        <div class="editor-head"><h2>📄 Informe listo</h2><button class="icon-btn" data-cerrar>✕</button></div>
+        <p class="muted">${esc(nombre)}</p>
+        ${estado}
+        ${error ? '<button class="menu-item" data-w="reintentar">🔄 Reintentar guardar en OneDrive</button>' : ''}
+        ${enlace ? `<a class="menu-item" href="${esc(enlace)}" target="_blank" rel="noopener">📂 Abrir en OneDrive</a>` : ''}
+        ${puedeCompartir ? '<button class="menu-item" data-w="compartir">📤 Enviar o compartir…</button>' : ''}
+        <button class="menu-item" data-w="descargar">⬇️ Descargar en este dispositivo</button>
+      </div>`);
+    m.addEventListener('click', async ev => {
+      const b = ev.target.closest('[data-w]');
+      if (!b) return;
+      if (b.dataset.w === 'reintentar') { cerrarModal(true); resultadoWord(blob, nombre); }
+      else if (b.dataset.w === 'compartir') {
+        try { await navigator.share({ files: [new File([blob], nombre, { type: blob.type })], title: nombre }); } catch (e) { /* cancelado */ }
+      } else if (b.dataset.w === 'descargar') {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = nombre;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+      }
+    });
   }
 
   function cargarXLSX() {
