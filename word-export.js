@@ -158,12 +158,30 @@
     const viajeSec = [new Paragraph({ children: [new PageBreak()] }), new Paragraph({ heading: HeadingLevel.HEADING_1, children: [run('Organización del viaje')] })];
     const vuelos = [...(viaje.vuelos || [])].sort((a, b) => String((a.fecha || '') + (a.hora || '')).localeCompare((b.fecha || '') + (b.hora || '')));
     viajeSec.push(new Paragraph({ heading: HeadingLevel.HEADING_2, children: [run('Vuelos')] }));
-    viajeSec.push(vuelos.length ? tablaListado(['Fecha', 'Hora', 'Desde', 'Hasta', 'Vuelo'], [1500, 1000, 2900, 2900, 1338],
-      vuelos.map(v => [fechaCorta(v.fecha), v.hora || '', v.origen || '', v.destino || '', v.numero || ''])) : new Paragraph({ children: [run('Sin vuelos registrados.', { italics: true, color: GRIS_SUAVE })] }));
+    const hm = d => dos(d.getHours()) + ':' + dos(d.getMinutes());
+    const dm = d => dos(d.getDate()) + '/' + dos(d.getMonth() + 1);
+    if (vuelos.length) {
+      for (const v of vuelos) {
+        const ae = o.horasAeropuerto ? o.horasAeropuerto(v) : null;
+        viajeSec.push(tablaDatos([
+          ['Vuelo', [v.numero, v.aerolinea].filter(Boolean).join(' · ')],
+          ['Salida', [fechaCorta(v.fecha), v.hora, v.origen, v.codOrigen && '(' + v.codOrigen + ')', v.terminalOrigen].filter(Boolean).join(' ')],
+          ['Llegada', [fechaCorta(v.llegadaFecha), v.llegadaHora, v.destino, v.codDestino && '(' + v.codDestino + ')', v.terminalDestino].filter(Boolean).join(' ')],
+          ['Duración', v.duracion],
+          ['Estar en el aeropuerto', ae ? dm(ae.llegar) + ' a las ' + hm(ae.llegar) + ' (' + ae.ant + ' h antes)' + (ae.cierre ? '. La facturación cierra a las ' + hm(ae.cierre) : '') : ''],
+          ['Clase y avión', [v.clase, v.avion].filter(Boolean).join(' · ')]
+        ]), vacio(120));
+      }
+    } else viajeSec.push(new Paragraph({ children: [run('Sin vuelos registrados.', { italics: true, color: GRIS_SUAVE })] }));
     viajeSec.push(new Paragraph({ heading: HeadingLevel.HEADING_2, children: [run('Hoteles')] }));
     const hoteles = [...(viaje.hoteles || [])].sort((a, b) => String(a.entrada || '').localeCompare(b.entrada || ''));
-    viajeSec.push(hoteles.length ? tablaListado(['Hotel', 'Ciudad', 'Entrada', 'Salida', 'Dirección'], [2300, 1300, 1700, 1700, 2638],
-      hoteles.map(h => [h.nombre || '', h.ciudad || '', fechaCorta(h.entrada), fechaCorta(h.salida), h.direccion || ''])) : new Paragraph({ children: [run('Sin hoteles registrados.', { italics: true, color: GRIS_SUAVE })] }));
+    if (hoteles.length) {
+      for (const h of hoteles) viajeSec.push(tablaDatos([
+        ['Hotel', [h.nombre, h.nombreZh].filter(Boolean).join(' · ')], ['Ciudad', h.ciudad],
+        ['Estancia', [fechaCorta(h.entrada), fechaCorta(h.salida)].filter(Boolean).join(' a ')],
+        ['Dirección', h.direccion], ['Dirección en chino', h.direccionZh], ['Teléfono', h.telefono]
+      ]), vacio(120));
+    } else viajeSec.push(new Paragraph({ children: [run('Sin hoteles registrados.', { italics: true, color: GRIS_SUAVE })] }));
     const nViaje = await notasUsuarios(viaje, 'notasViaje');
     const nRuta = await notasUsuarios(viaje, 'notasRuta');
     if (nViaje.length) viajeSec.push(new Paragraph({ heading: HeadingLevel.HEADING_2, children: [run('Notas del viaje')] }), ...nViaje);

@@ -2,7 +2,7 @@
 'use strict';
 
 window.APP_CONFIG = {
-  VERSION: '1.2.1',
+  VERSION: '1.3.0',
   TITULO: '2º Viaje China',
   EVENTO: 'Automechanika Shanghai 2026',
   FECHAS_FERIA: { inicio: '2026-12-02', fin: '2026-12-05', lugar: 'NECC · Shanghái' },

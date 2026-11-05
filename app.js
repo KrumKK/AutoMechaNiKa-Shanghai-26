@@ -221,6 +221,71 @@
     window.scrollTo(0, y);
   }
 
+  // ═══════════ Vuelos y hoteles ═══════════
+  const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+  const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const fechaHora = (f, h) => { const d = new Date((f || '') + 'T' + (h || '00:00') + ':00'); return isNaN(d) ? null : d; };
+  const diaTxt = d => DIAS[d.getDay()] + ' ' + d.getDate() + ' ' + MESES[d.getMonth()];
+  const horaTxt = d => dos(d.getHours()) + ':' + dos(d.getMinutes());
+
+  // A qué hora estar en el aeropuerto y cuándo cierra la facturación
+  function horasAeropuerto(v) {
+    const sal = fechaHora(v.fecha, v.hora);
+    if (!sal) return null;
+    const ant = Number(v.antelacion) || 3;
+    const llegar = new Date(sal.getTime() - ant * 3600000);
+    const cierre = v.cierre ? new Date(sal.getTime() - Number(v.cierre) * 60000) : null;
+    return { llegar, cierre, ant, otroDia: llegar.toDateString() !== sal.toDateString() };
+  }
+
+  function tarjetaVuelo(v) {
+    const sal = fechaHora(v.fecha, v.hora), lle = fechaHora(v.llegadaFecha, v.llegadaHora);
+    const masDias = sal && lle ? Math.round((new Date(lle.toDateString()) - new Date(sal.toDateString())) / 86400000) : 0;
+    const ae = horasAeropuerto(v);
+    const lugar = (cod, nombre, t) => `<span class="v-lugar"><b>${esc(cod || nombre || '¿?')}</b>${t ? ' ' + esc(t) : ''}${cod && nombre ? `<span class="muted small">${esc(nombre)}</span>` : ''}</span>`;
+    return `
+      <button class="card vuelo2" data-editar="vuelo" data-id="${esc(v.id)}">
+        <span class="v-cab"><b>${sal ? esc(diaTxt(sal)) : esc(v.fecha || '')}</b><span class="badge rosa">${esc(v.numero || 'Vuelo')}</span>${v.aerolinea ? `<span class="muted small">${esc(v.aerolinea)}</span>` : ''}</span>
+        <span class="v-ruta">
+          <span class="v-punto"><span class="v-hora">${esc(v.hora || '··:··')}</span>${lugar(v.codOrigen, v.origen, v.terminalOrigen)}</span>
+          <span class="v-linea">${v.duracion ? `<span class="muted small">${esc(v.duracion)}</span>` : ''}<span class="v-flecha">✈</span></span>
+          <span class="v-punto"><span class="v-hora">${esc(v.llegadaHora || '··:··')}${masDias > 0 ? `<sup class="v-mas">+${masDias}</sup>` : ''}</span>${lugar(v.codDestino, v.destino, v.terminalDestino)}</span>
+        </span>
+        ${ae ? `<span class="v-aero">🕒 Estar en el aeropuerto: <b>${ae.otroDia ? esc(diaTxt(ae.llegar)) + ', ' : ''}${esc(horaTxt(ae.llegar))}</b> (${ae.ant} h antes)${ae.cierre ? ` · la facturación cierra a las ${esc(horaTxt(ae.cierre))}` : ''}</span>` : ''}
+        ${ae && ae.otroDia ? `<span class="v-aviso">⚠️ Sale de madrugada: hay que ir al aeropuerto la noche del ${esc(diaTxt(ae.llegar))}.</span>` : ''}
+        ${v.clase || v.avion ? `<span class="muted small">${[v.clase, v.avion].filter(Boolean).map(esc).join(' · ')}</span>` : ''}
+      </button>`;
+  }
+
+  function tarjetaHotel(h) {
+    const noches = h.entrada && h.salida ? Math.round((new Date(h.salida) - new Date(h.entrada)) / 86400000) : 0;
+    const ent = fechaHora(h.entrada), sal = fechaHora(h.salida);
+    return `
+      <div class="card hotel2">
+        <div class="h-cab">
+          <div><b class="h-nombre">${esc(h.nombre || 'Hotel')}</b>${h.nombreZh ? `<div class="zh">${esc(h.nombreZh)}</div>` : ''}</div>
+          <button class="icon-btn" data-editar="hotel" data-id="${esc(h.id)}" aria-label="Editar hotel">✏️</button>
+        </div>
+        <div class="muted">${esc(h.ciudad || '')}${ent ? ' · ' + esc(diaTxt(ent)) : ''}${sal ? ' → ' + esc(diaTxt(sal)) : ''}${noches > 0 ? ' · ' + noches + (noches === 1 ? ' noche' : ' noches') : ''}</div>
+        ${h.direccionZh ? `<div class="h-dir zh-grande">${esc(h.direccionZh)}</div>` : ''}
+        ${h.direccion ? `<div class="h-dir muted">${esc(h.direccion)}</div>` : ''}
+        ${h.telefono ? `<div class="muted small">📞 <a href="tel:${esc(h.telefono.replace(/\s/g, ''))}">${esc(h.telefono)}</a></div>` : ''}
+        <div class="acciones-fila h-botones">
+          ${h.direccionZh ? `<button class="btn primary" data-copiar="${esc(h.direccionZh)}">📋 Copiar para DiDi (中文)</button>` : ''}
+          ${h.direccion ? `<button class="btn soft" data-copiar="${esc(h.direccion)}">📋 Copiar en inglés</button>` : ''}
+        </div>
+      </div>`;
+  }
+
+  async function copiarTexto(t) {
+    let ok = false;
+    try { await navigator.clipboard.writeText(t); ok = true; } catch (e) {
+      try { const ta = document.createElement('textarea'); ta.value = t; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select(); ok = document.execCommand('copy'); ta.remove(); } catch (e2) { ok = false; }
+    }
+    toast(ok ? 'Dirección copiada. Pégala en DiDi en el campo de destino.' : 'No se pudo copiar. Mantén pulsado el texto para copiarlo.');
+  }
+
   // ═══════════ General: organización del viaje ═══════════
   function cuentaAtras() {
     const vuelos = [...state.viaje.vuelos].filter(v => v.fecha).sort((a, b) => nat(a.fecha + (a.hora || ''), b.fecha + (b.hora || '')));
@@ -252,26 +317,13 @@
 
       <section>
         <div class="sec-head"><h2>✈️ Vuelos</h2><button class="btn soft" data-nuevo="vuelo">+ Añadir</button></div>
-        ${vuelos.length ? vuelos.map(v => `
-          <button class="card fila vuelo" data-editar="vuelo" data-id="${esc(v.id)}">
-            <span class="hora">${esc(v.hora || '··:··')}</span>
-            <span class="fila-body">
-              <b>${esc(v.origen || '¿?')} → ${esc(v.destino || '¿?')}</b>
-              <span class="muted">${esc(fechaCorta(v.fecha))}${v.numero ? ' · ' + esc(v.numero) : ''}</span>
-            </span>
-          </button>`).join('') : '<p class="vacio">Todavía no hay vuelos. Añade el primero.</p>'}
+        ${vuelos.length ? vuelos.map(tarjetaVuelo).join('') : '<p class="vacio">Todavía no hay vuelos. Añade el primero.</p>'}
+        ${vuelos.length ? '<p class="nota-info">Horarios en hora local de cada aeropuerto. La hora para estar en el aeropuerto es orientativa: 3 h antes en vuelos internacionales.</p>' : ''}
       </section>
 
       <section>
         <div class="sec-head"><h2>🏨 Hoteles</h2><button class="btn soft" data-nuevo="hotel">+ Añadir</button></div>
-        ${hoteles.length ? hoteles.map(h => `
-          <button class="card fila" data-editar="hotel" data-id="${esc(h.id)}">
-            <span class="fila-body">
-              <b>${esc(h.nombre || 'Hotel')}</b>
-              <span class="muted">${esc(h.ciudad || '')}${h.entrada ? ' · Entrada ' + esc(fechaCorta(h.entrada)) : ''}${h.salida ? ', salida ' + esc(fechaCorta(h.salida)) : ''}</span>
-              ${h.direccion ? `<span class="muted small">${esc(h.direccion)}</span>` : ''}
-            </span>
-          </button>`).join('') : '<p class="vacio">Todavía no hay hoteles.</p>'}
+        ${hoteles.length ? hoteles.map(tarjetaHotel).join('') : '<p class="vacio">Todavía no hay hoteles.</p>'}
       </section>
 
       <section class="card bloque">${notasHTML(VIAJE, state.viaje, 'notasViaje', '📝 Notas del viaje')}</section>`;
@@ -538,13 +590,19 @@
   // ═══════════ Formularios de vuelo y hotel ═══════════
   const ESQUEMAS = {
     vuelo: { lista: 'vuelos', titulo: 'vuelo', campos: [
-      { k: 'fecha', label: 'Fecha', type: 'date', half: true }, { k: 'hora', label: 'Hora de salida', type: 'time', half: true },
-      { k: 'origen', label: 'Desde', ph: 'Madrid', half: true }, { k: 'destino', label: 'Hasta', ph: 'Shanghái Pudong', half: true },
-      { k: 'numero', label: 'Nº de vuelo', ph: 'CA 908' }] },
+      { k: 'numero', label: 'Nº de vuelo', ph: 'MU710', half: true }, { k: 'aerolinea', label: 'Aerolínea', ph: 'China Eastern', half: true },
+      { k: 'fecha', label: 'Fecha de salida', type: 'date', half: true }, { k: 'hora', label: 'Hora de salida', type: 'time', half: true },
+      { k: 'origen', label: 'Desde', ph: 'Madrid Barajas', half: true }, { k: 'codOrigen', label: 'Código', ph: 'MAD', half: true },
+      { k: 'terminalOrigen', label: 'Terminal de salida', ph: 'T1', half: true }, { k: 'duracion', label: 'Duración', ph: '12 h 50 min', half: true },
+      { k: 'llegadaFecha', label: 'Fecha de llegada', type: 'date', half: true }, { k: 'llegadaHora', label: 'Hora de llegada', type: 'time', half: true },
+      { k: 'destino', label: 'Hasta', ph: 'Shanghái Pudong', half: true }, { k: 'codDestino', label: 'Código', ph: 'PVG', half: true },
+      { k: 'terminalDestino', label: 'Terminal de llegada', ph: 'T1', half: true }, { k: 'clase', label: 'Clase', ph: 'Turista Premium', half: true },
+      { k: 'avion', label: 'Avión', ph: 'Airbus A350-900' },
+      { k: 'antelacion', label: 'Estar en el aeropuerto (horas antes)', type: 'number', ph: '3', half: true }, { k: 'cierre', label: 'Cierre facturación (min antes)', type: 'number', ph: '60', half: true }] },
     hotel: { lista: 'hoteles', titulo: 'hotel', campos: [
-      { k: 'nombre', label: 'Nombre del hotel' }, { k: 'ciudad', label: 'Ciudad', ph: 'Shanghái' },
+      { k: 'nombre', label: 'Nombre del hotel' }, { k: 'nombreZh', label: 'Nombre en chino (opcional)' }, { k: 'ciudad', label: 'Ciudad', ph: 'Shanghái' },
       { k: 'entrada', label: 'Entrada', type: 'date', half: true }, { k: 'salida', label: 'Salida', type: 'date', half: true },
-      { k: 'direccion', label: 'Dirección' }] }
+      { k: 'direccion', label: 'Dirección (inglés)' }, { k: 'direccionZh', label: 'Dirección en chino (para DiDi)' }, { k: 'telefono', label: 'Teléfono', type: 'tel' }] }
   };
 
   const campoHTML = (c, v) => `<label class="campo ${c.half ? 'half' : ''}"><span class="lbl">${esc(c.label)}</span>
@@ -784,6 +842,8 @@
       if (b) { loginUser = b.dataset.login; pintarLogin(); }
       return;
     }
+    const cp = e.target.closest('[data-copiar]');
+    if (cp) { copiarTexto(cp.dataset.copiar); return; }
     const t = e.target.closest('[data-tab],[data-sub],[data-set],[data-nuevo],[data-editar],[data-ficha],[data-visitado],[data-present],[data-accion]');
     if (!t) return;
     const d = t.dataset;
@@ -856,7 +916,7 @@
     let ultimo = 0;
     try {
       const { blob, nombre } = await window.generarInformeWord({
-        CFG, usuario: state.user, viaje: state.viaje, feria: feriaOrden, visitas: vis, incluirFotos,
+        CFG, usuario: state.user, viaje: state.viaje, feria: feriaOrden, visitas: vis, incluirFotos, horasAeropuerto,
         leerFoto: ruta => store.leerFoto(ruta),
         progreso: (i, n) => { if (i - ultimo >= 10) { ultimo = i; toast('Preparando el informe… ' + i + ' de ' + n); } }
       });
@@ -926,8 +986,10 @@
     const notasDe = e => { const o = {}; CFG.USUARIOS.forEach(u => { o['Notas ' + u] = bloque(e, u).texto || ''; o['Fotos ' + u] = (bloque(e, u).fotos || []).length; }); return o; };
     const colsU = CFG.USUARIOS.flatMap(u => ['Notas ' + u, 'Fotos ' + u]);
     const vuelos = [...state.viaje.vuelos].sort((a, b) => nat((a.fecha || '') + (a.hora || ''), (b.fecha || '') + (b.hora || '')));
-    X.utils.book_append_sheet(wb, hoja(['Fecha', 'Hora', 'Origen', 'Destino', 'Vuelo'], vuelos.map(v => ({ Fecha: v.fecha, Hora: v.hora, Origen: v.origen, Destino: v.destino, Vuelo: v.numero }))), 'Vuelos');
-    X.utils.book_append_sheet(wb, hoja(['Hotel', 'Ciudad', 'Entrada', 'Salida', 'Dirección'], state.viaje.hoteles.map(h => ({ Hotel: h.nombre, Ciudad: h.ciudad, Entrada: h.entrada, Salida: h.salida, 'Dirección': h.direccion }))), 'Hoteles');
+    X.utils.book_append_sheet(wb, hoja(['Vuelo', 'Aerolínea', 'Fecha', 'Hora', 'Origen', 'Terminal salida', 'Fecha llegada', 'Hora llegada', 'Destino', 'Terminal llegada', 'Estar en aeropuerto'],
+      vuelos.map(v => { const ae = horasAeropuerto(v); return { Vuelo: v.numero, 'Aerolínea': v.aerolinea, Fecha: v.fecha, Hora: v.hora, Origen: v.origen, 'Terminal salida': v.terminalOrigen,
+        'Fecha llegada': v.llegadaFecha, 'Hora llegada': v.llegadaHora, Destino: v.destino, 'Terminal llegada': v.terminalDestino, 'Estar en aeropuerto': ae ? diaTxt(ae.llegar) + ' ' + horaTxt(ae.llegar) : '' }; })), 'Vuelos');
+    X.utils.book_append_sheet(wb, hoja(['Hotel', 'Ciudad', 'Entrada', 'Salida', 'Dirección', 'Dirección en chino', 'Teléfono'], state.viaje.hoteles.map(h => ({ Hotel: h.nombre, Ciudad: h.ciudad, Entrada: h.entrada, Salida: h.salida, 'Dirección': h.direccion, 'Dirección en chino': h.direccionZh, 'Teléfono': h.telefono }))), 'Hoteles');
     X.utils.book_append_sheet(wb, hoja(['Orden', 'Empresa', 'Nombre chino', 'Pabellón', 'Stand', 'Categoría', 'Visitado', 'Contacto', 'Rol', 'Web', ...colsU],
       calcularRuta().map(({ orden, e }) => Object.assign({ Orden: orden, Empresa: e.nombre, 'Nombre chino': e.nombreZh, 'Pabellón': e.pabellon, Stand: e.stand,
         'Categoría': esImportante(e) ? 'Importante' : 'Menos importante', Visitado: e.visitado ? 'Sí' : 'No', Contacto: e.contacto, Rol: e.rol, Web: e.web }, notasDe(e)))), 'Feria');
