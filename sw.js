@@ -4,7 +4,7 @@
  * El vídeo y SharePoint no pasan por aquí. */
 'use strict';
 
-const CACHE = 'ams26-v2';
+const CACHE = 'ams26-v3';
 const APP = [
   './', 'index.html', 'styles.css', 'config.js', 'store.js', 'app.js',
   'presentations-slides-manifest.js', 'manifest.webmanifest', 'icon.svg', 'lizarte-logo.png',
@@ -14,7 +14,8 @@ const APP = [
 ];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(APP)).catch(() => undefined));
+  // cache: 'no-cache' evita guardar copias viejas que el navegador tuviera en su caché HTTP
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(APP.map(u => new Request(u, { cache: 'no-cache' })))).catch(() => undefined));
   self.skipWaiting();
 });
 
@@ -29,7 +30,7 @@ function redPrimero(req) {
     let resuelto = false;
     // Si la red tarda (habitual en China), servimos la copia guardada a los 4 s
     const t = setTimeout(() => caches.match(req, { ignoreSearch: true }).then(c => { if (c && !resuelto) { resuelto = true; resolve(c); } }), 4000);
-    fetch(req).then(r => {
+    fetch(req, { cache: 'no-cache' }).then(r => {
       if (r && r.ok) { const copia = r.clone(); caches.open(CACHE).then(c => c.put(req, copia)); }
       clearTimeout(t);
       if (!resuelto) { resuelto = true; resolve(r); }
