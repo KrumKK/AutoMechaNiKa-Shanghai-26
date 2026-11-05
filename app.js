@@ -13,6 +13,12 @@
   const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
   const dos = n => String(n).padStart(2, '0');
   const color = u => 'u' + Math.max(0, CFG.USUARIOS.indexOf(u));
+  // Sesión solo mientras la app está abierta: al volver a abrirla pregunta otra vez el usuario
+  const ss = {
+    get(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { sessionStorage.setItem(k, v); } catch (e) { /* nada */ } },
+    del(k) { try { sessionStorage.removeItem(k); } catch (e) { /* nada */ } }
+  };
   const ls = {
     get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
     set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* sin almacenamiento */ } },
@@ -133,7 +139,7 @@
     } else if (ls.get(clave) !== await hashPass(loginUser, pass)) {
       return pintarLogin('Contraseña incorrecta.');
     }
-    ls.set('ams26:sesion', loginUser);
+    ss.set('ams26:sesion', loginUser);
     entrar(loginUser);
   });
 
@@ -146,7 +152,7 @@
   }
 
   function salir() {
-    ls.del('ams26:sesion');
+    ss.del('ams26:sesion');
     state.user = null;
     loginUser = null;
     cerrarModal();
@@ -941,7 +947,8 @@
 
   // ═══════════ Arranque ═══════════
   if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
-  const sesion = ls.get('ams26:sesion');
+  ls.del('ams26:sesion'); // sesiones guardadas por la versión anterior
+  const sesion = ss.get('ams26:sesion');
   if (sesion && CFG.USUARIOS.includes(sesion) && ls.get('ams26:pass:' + sesion)) entrar(sesion);
   else pintarLogin();
 })();

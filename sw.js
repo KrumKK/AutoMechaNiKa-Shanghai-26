@@ -4,7 +4,7 @@
  * El vídeo y SharePoint no pasan por aquí. */
 'use strict';
 
-const CACHE = 'ams26-v3';
+const CACHE = 'ams26-v4';
 const APP = [
   './', 'index.html', 'styles.css', 'config.js', 'store.js', 'app.js',
   'presentations-slides-manifest.js', 'manifest.webmanifest', 'icon.svg', 'lizarte-logo.png',
