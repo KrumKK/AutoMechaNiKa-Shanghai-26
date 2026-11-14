@@ -37,4 +37,4 @@ En `config.js`, poner `SHAREPOINT.activo: true`. La Azure Function debe aceptar 
 ## Puntos a revisar con sistemas
 
 * El endpoint del token responde a cualquiera que lo llame, y su dirección está en el código público de GitHub. Quien lo conozca obtiene un token con los permisos que tenga la aplicación en Azure. Conviene limitarlo: permisos solo sobre el sitio `MisionesComercialesICEX` (Sites.Selected), CORS restringido y, idealmente, una clave o inicio de sesión de Microsoft.
-* Las contraseñas de la app protegen la pantalla del móvil, no los datos del servidor. La protección real de los datos es la del punto anterior.
+* La app no tiene contraseña: solo pide elegir usuario. La protección real de los datos es la del punto anterior.

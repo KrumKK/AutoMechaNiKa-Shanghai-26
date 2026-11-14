@@ -133,15 +133,10 @@
     return doc;
   }
 
-  // ═══════════ Inicio de sesión (contraseña por usuario, guardada cifrada en cada dispositivo) ═══════════
-  async function hashPass(u, p) {
-    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('ams26:' + u + ':' + p));
-    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-  }
+  // ═══════════ Inicio de sesión: solo hay que decir quién eres (sin contraseña) ═══════════
   let loginUser = null;
 
-  function pintarLogin(error) {
-    const crear = loginUser && !ls.get('ams26:pass:' + loginUser);
+  function pintarLogin() {
     root.innerHTML = `
       <div class="login">
         <div class="login-card">
@@ -149,40 +144,14 @@
           <p class="login-titulo">${esc(CFG.TITULO || '')}</p>
           <p class="login-mision">Automechanika Shanghai · 2 al 5 de diciembre de 2026</p>
           <p class="login-sub">Acceso Lizarte · ${store.modo === 'sharepoint' ? 'sincronización SharePoint' : 'datos en este dispositivo'}</p>
+          <p class="login-hint">¿Quién eres?</p>
           <div class="login-users">
-            ${CFG.USUARIOS.map(u => `<button type="button" class="login-user ${u === loginUser ? 'on' : ''}" data-login="${esc(u)}">Soy ${esc(u)}</button>`).join('')}
+            ${CFG.USUARIOS.map(u => `<button type="button" class="login-user" data-login="${esc(u)}">Soy ${esc(u)}</button>`).join('')}
           </div>
-          ${loginUser ? `
-            <form id="loginForm" class="login-form">
-              <input type="text" name="username" value="${esc(loginUser)}" autocomplete="username" hidden>
-              <label class="lbl" for="pass">${crear ? `Crea la contraseña de ${esc(loginUser)} en este dispositivo` : `Contraseña de ${esc(loginUser)}`}</label>
-              <input id="pass" class="input" type="password" name="pass" minlength="4" required autocomplete="${crear ? 'new-password' : 'current-password'}">
-              ${crear ? '<input class="input" type="password" name="pass2" minlength="4" required placeholder="Repite la contraseña" autocomplete="new-password">' : ''}
-              <button class="btn primary big" type="submit">${crear ? 'Crear y entrar' : 'Entrar'}</button>
-            </form>` : '<p class="login-hint">Elige usuario</p>'}
-          ${error ? `<p class="login-error">${esc(error)}</p>` : ''}
           <p class="login-version">Versión ${esc(CFG.VERSION)}</p>
         </div>
       </div>`;
-    const p = document.getElementById('pass');
-    if (p) p.focus();
   }
-
-  root.addEventListener('submit', async e => {
-    if (e.target.id !== 'loginForm') return;
-    e.preventDefault();
-    const f = new FormData(e.target);
-    const pass = String(f.get('pass') || '');
-    const clave = 'ams26:pass:' + loginUser;
-    if (!ls.get(clave)) {
-      if (pass !== f.get('pass2')) return pintarLogin('Las contraseñas no coinciden.');
-      ls.set(clave, await hashPass(loginUser, pass));
-    } else if (ls.get(clave) !== await hashPass(loginUser, pass)) {
-      return pintarLogin('Contraseña incorrecta.');
-    }
-    ss.set('ams26:sesion', loginUser);
-    entrar(loginUser);
-  });
 
   async function entrar(u) {
     state.user = u;
@@ -1052,7 +1021,7 @@
   root.addEventListener('click', async e => {
     if (!state.user) {
       const b = e.target.closest('[data-login]');
-      if (b) { loginUser = b.dataset.login; pintarLogin(); }
+      if (b) { loginUser = b.dataset.login; ss.set('ams26:sesion', loginUser); entrar(loginUser); }
       return;
     }
     const cp = e.target.closest('[data-copiar]');
@@ -1361,6 +1330,6 @@
   if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   ls.del('ams26:sesion'); // sesiones guardadas por la versión anterior
   const sesion = ss.get('ams26:sesion');
-  if (sesion && CFG.USUARIOS.includes(sesion) && ls.get('ams26:pass:' + sesion)) entrar(sesion);
+  if (sesion && CFG.USUARIOS.includes(sesion)) entrar(sesion);
   else pintarLogin();
 })();
