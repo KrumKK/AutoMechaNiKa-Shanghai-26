@@ -73,6 +73,8 @@
   const badgeNivel = e => `<span class="badge ${NIVELES[nivel(e)].badge}">${NIVELES[nivel(e)].txt}</span>`;
   const claseNivel = e => tipoDe(e) === 'feria' ? 'niv' + nivel(e) : '';
   const badgeLinea = e => (e.prep && e.prep.linea) ? `<span class="badge azul">${esc(e.prep.linea)}</span>` : '';
+  // Pabellones MM (MM2, MM4, MM6, MM8): están en la entreplanta del NECC, zona de piezas y componentes
+  const pabTxt = p => { p = String(p || '').trim(); return p.replace(/\b(MM\s*\d)\b/gi, '$1 (entreplanta)'); };
   // Identificación dentro de las principales (criterios de la reunión con Óscar).
   // Sale sola del "Grupo de producto" del Excel; en la ficha se puede forzar o quitar (campo ident).
   const IDENTS = [
@@ -384,7 +386,7 @@
     if (t === 'seleccionada') return tarjetaSeleccionada(e);
     const linea = t === 'visita'
       ? [e.ciudad, e.fecha ? fechaCorta(e.fecha) : '', e.hora].filter(Boolean).map(esc).join(' · ')
-      : 'Pab. ' + esc(e.pabellon || '¿?') + ' · Stand ' + esc(e.stand || '¿?');
+      : 'Pab. ' + esc(pabTxt(e.pabellon) || '¿?') + ' · Stand ' + esc(e.stand || '¿?');
     const resumen = CFG.USUARIOS.map(u => bloque(e, u).texto).find(t => (t || '').trim()) || '';
     return `
       <div class="card empresa ${claseNivel(e)} ${e.visitado ? 'hecho-suave' : ''}">
@@ -412,7 +414,7 @@
   function lineaFeria(e) {
     const f = empresaFeria(e);
     if (!f) return '';
-    return `<span class="en-feria" data-ficha="${esc(f.id)}">🏭 ${e.enFeriaDuda ? 'Posiblemente en la feria' : 'También en la feria'}: Pab. ${esc(f.pabellon || '¿?')} · Stand ${esc(f.stand || '¿?')} ›</span>`;
+    return `<span class="en-feria" data-ficha="${esc(f.id)}">🏭 ${e.enFeriaDuda ? 'Posiblemente en la feria' : 'También en la feria'}: Pab. ${esc(pabTxt(f.pabellon) || '¿?')} · Stand ${esc(f.stand || '¿?')} ›</span>`;
   }
 
   function tarjetaSeleccionada(e) {
@@ -590,7 +592,7 @@
       lista = visibles.map(({ orden, e }) => {
         const g = state.modoRuta === 'importantes'
           ? NIVELES[nivel(e)].plural + (nivel(e) === 0 ? ' · ' + (identTxt(e) || 'otras') : '')
-          : 'Pabellón ' + (e.pabellon || 'sin indicar');
+          : 'Pabellón ' + (pabTxt(e.pabellon) || 'sin indicar');
         const cab = g !== grupoActual ? `<h3 class="grupo">${esc(g)}</h3>` : '';
         grupoActual = g;
         return cab + `
@@ -599,7 +601,7 @@
             <button class="parada-body" data-ficha="${esc(e.id)}">
               ${badgeIdent(e)}
               <span class="emp-top"><span class="num">${orden}</span><b>${esc(e.nombre || 'Sin nombre')}</b></span>
-              <span class="muted">Pab. ${esc(e.pabellon || '¿?')} · Stand ${esc(e.stand || '¿?')}</span>
+              <span class="muted">Pab. ${esc(pabTxt(e.pabellon) || '¿?')} · Stand ${esc(e.stand || '¿?')}</span>
               <span class="tags">${badgeNivel(e)}${badgeLinea(e)}${marcasEmpresa(e)}</span>
             </button>
             <div class="emp-pie">${botonVisita(e)}</div>
@@ -615,7 +617,7 @@
         </div>
         <div class="seg">${seg('modoRuta', 'pabellones', 'Por pabellones')}${seg('modoRuta', 'importantes', 'Por prioridad')}</div>
         <div class="chips-filtro">${seg('filtro', 'todos', 'Todos')}${seg('filtro', 'importantes', 'Principales')}${seg('filtro', 'altas', '+ Sec. alta')}${seg('filtro', 'pendientes', 'Pendientes')}</div>
-        <p class="nota-info">ℹ️ El orden recorre los pabellones en secuencia para caminar lo mínimo. Confirma pabellón y stand en el plano oficial o en la app de visitante de la feria.</p>
+        <p class="nota-info">ℹ️ El orden recorre los pabellones en secuencia para caminar lo mínimo. Los pabellones MM (MM2, MM4, MM6, MM8) están en la entreplanta, zona de piezas y componentes. Confirma pabellón y stand en el plano oficial o en la app de visitante de la feria.</p>
         ${lista}
       </section>
       <section class="card bloque">${notasHTML(VIAJE, state.viaje, 'notasRuta', '📝 Notas de la ruta')}</section>`;
@@ -1207,14 +1209,14 @@
       aVisitar().map(e => Object.assign({ Empresa: e.nombre, Zona: zonaDe(e)[1], Ciudad: e.ciudad || (empresaFeria(e) || {}).ciudad || '', 'Día': e.fecha, Hora: e.hora, 'Dirección': e.direccion,
         Origen: tipoDe(e) === 'feria' ? 'Feria (' + NIVELES[nivel(e)].txt.replace('⭐ ', '') + ')' : (tipoDe(e) === 'seleccionada' ? 'Seleccionada' : 'Otra'), 'Visita hecha': e.visitaHecha ? 'Sí' : 'No' }, notasDe(e)))), 'A visitar');
     X.utils.book_append_sheet(wb, hoja(['Orden', 'Empresa', 'Nombre chino', 'Pabellón', 'Stand', 'Categoría', 'Línea', 'Visita', 'Visitado', 'Contacto', 'Rol', 'Web', ...colsU],
-      calcularRuta().map(({ orden, e }) => Object.assign({ Orden: orden, Empresa: e.nombre, 'Nombre chino': e.nombreZh, 'Pabellón': e.pabellon, Stand: e.stand,
+      calcularRuta().map(({ orden, e }) => Object.assign({ Orden: orden, Empresa: e.nombre, 'Nombre chino': e.nombreZh, 'Pabellón': pabTxt(e.pabellon), Stand: e.stand,
         'Categoría': NIVELES[nivel(e)].txt.replace('⭐ ', ''), 'Identificación': identTxt(e), 'Línea': (e.prep || {}).linea || '', Visita: e.visita ? 'Sí' : '', Visitado: e.visitado ? 'Sí' : 'No', Contacto: e.contacto, Rol: e.rol, Web: e.web }, notasDe(e)))), 'Feria');
     X.utils.book_append_sheet(wb, hoja(['Empresa', 'Nombre chino', 'Ciudad', 'Fecha', 'Hora', 'Dirección', 'Contacto', 'Rol', 'Web', 'Visitado', ...colsU],
       visitas().map(e => Object.assign({ Empresa: e.nombre, 'Nombre chino': e.nombreZh, Ciudad: e.ciudad, Fecha: e.fecha, Hora: e.hora, 'Dirección': e.direccion,
         Contacto: e.contacto, Rol: e.rol, Web: e.web, Visitado: e.visitado ? 'Sí' : 'No' }, notasDe(e)))), 'Visitas');
     X.utils.book_append_sheet(wb, hoja(['Empresa', 'Prioritaria', 'Visita', 'Ciudad', 'Procedencia', 'Tamaño', 'Observación', 'En la feria', 'Contacto', 'Email', 'Teléfono', 'Visitada', ...colsU],
       seleccionadas().map(e => { const f = empresaFeria(e), p = e.prep || {}; return Object.assign({ Empresa: e.nombre, Prioritaria: e.prioritaria ? 'Sí' : '', Visita: e.visita ? 'Sí' : '', Ciudad: e.ciudad,
-        Procedencia: p.procedencia, 'Tamaño': p.tamano, 'Observación': p.observacion, 'En la feria': f ? 'Pab. ' + (f.pabellon || '') + ' · ' + (f.stand || '') : '',
+        Procedencia: p.procedencia, 'Tamaño': p.tamano, 'Observación': p.observacion, 'En la feria': f ? 'Pab. ' + pabTxt(f.pabellon) + ' · ' + (f.stand || '') : '',
         Contacto: e.contacto, Email: e.email, 'Teléfono': e.telefono, Visitada: e.visitado ? 'Sí' : 'No' }, notasDe(e)); })), 'Seleccionadas');
     X.utils.book_append_sheet(wb, hoja(['Usuario', 'Notas del viaje', 'Notas de la ruta'], CFG.USUARIOS.map(u => ({ Usuario: u, 'Notas del viaje': bloque(state.viaje, u).notasViaje || '', 'Notas de la ruta': bloque(state.viaje, u).notasRuta || '' }))), 'Notas');
     const h = new Date();

@@ -207,6 +207,7 @@
       }
     }
 
+    const pabTxt = p => { p = String(p || '').trim(); return p.replace(/\b(MM\s*\d)\b/gi, '$1 (entreplanta)'); };
     // ---------- Fichas de empresa ----------
     async function ficha(e, i, total, esFeria, esSelec) {
       progreso && progreso(i, total, e.nombre);
@@ -216,7 +217,7 @@
       if (e.nombreZh) out.push(new Paragraph({ spacing: { after: 100 }, children: [run(e.nombreZh, { size: 22, color: GRIS, font: { eastAsia: 'Microsoft YaHei' } })] }));
       const estado = [esFeria ? 'Prioridad ' + nivelTxt(e).toLowerCase() + (e._ident ? ' · ' + e._ident : '') : (esSelec ? (e.prioritaria ? 'Seleccionada · prioritaria' : 'Seleccionada') : 'Visita'), e.visitado ? 'Visitada' : 'Pendiente de visitar'].join(' · ');
       const datos = tablaDatos([
-        esSelec ? ['En la feria', e._feria ? (e.enFeriaDuda ? 'Posiblemente: ' : '') + 'Pabellón ' + (e._feria.pabellon || '¿?') + ' · Stand ' + (e._feria.stand || '¿?') : ''] : esFeria ? ['Pabellón / stand', (e.pabellon ? 'Pabellón ' + e.pabellon : 'Sin pabellón') + (e.stand ? ' · Stand ' + e.stand : '')] : ['Cuándo', [fechaLarga(e.fecha), e.hora].filter(Boolean).join(' · ')],
+        esSelec ? ['En la feria', e._feria ? (e.enFeriaDuda ? 'Posiblemente: ' : '') + 'Pabellón ' + (pabTxt(e._feria.pabellon) || '¿?') + ' · Stand ' + (e._feria.stand || '¿?') : ''] : esFeria ? ['Pabellón / stand', (e.pabellon ? 'Pabellón ' + pabTxt(e.pabellon) : 'Sin pabellón') + (e.stand ? ' · Stand ' + e.stand : '')] : ['Cuándo', [fechaLarga(e.fecha), e.hora].filter(Boolean).join(' · ')],
         ['Estado', estado],
         ['Visita a fábrica', e.visita ? ['Sí', e.fecha ? fechaCorta(e.fecha) : '', e.hora, e.visitaHecha ? 'hecha' : ''].filter(Boolean).join(' · ') : ''],
         ['Ubicación', [e.direccion, e.ciudad, e.pais].filter(Boolean).join(', ')],
@@ -245,7 +246,7 @@
         new Paragraph({ spacing: { after: 200 }, children: [run('Empresas en el orden de la ruta por pabellones.', { color: GRIS_SUAVE, size: 19 })] }));
       let pab = null;
       for (const e of ff) {
-        const g = e.pabellon ? 'Pabellón ' + e.pabellon : 'Sin pabellón asignado';
+        const g = e.pabellon ? 'Pabellón ' + pabTxt(e.pabellon) : 'Sin pabellón asignado';
         if (g !== pab) { pab = g; feriaSec.push(new Paragraph({ heading: HeadingLevel.HEADING_3, children: [run(g.toUpperCase())] })); }
         feriaSec.push(...(await ficha(e, ++n, total, true)));
       }

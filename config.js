@@ -2,14 +2,15 @@
 'use strict';
 
 window.APP_CONFIG = {
-  VERSION: '1.7.0',
+  VERSION: '1.7.1',
   TITULO: '2º Viaje China',
   EVENTO: 'Automechanika Shanghai 2026',
   FECHAS_FERIA: { inicio: '2026-12-02', fin: '2026-12-05', lugar: 'NECC · Shanghái' },
   USUARIOS: ['Krum', 'Óscar'],
 
   // Orden de recorrido de los pabellones (ruta de Óscar). Los no listados van al final.
-  ORDEN_PABELLONES: ['5.1', '6.1', '7.1', '7.2', '8.1', '8.2', '1.1', '1.2', '2.1', '3', '4.1'],
+  // Los MM están en la entreplanta (piezas y componentes); cada uno va tras su pabellón principal.
+  ORDEN_PABELLONES: ['5.1', '6.1', 'MM6', '7.1', '7.2', '8.1', '8.2', 'MM8', '1.1', '1.2', '2.1', 'MM2', '3', '4.1', 'MM4'],
 
   // Datos guardados en la carpeta "APP VIAJE CHINA" del OneDrive de Óscar Huarte:
   // Año 2026 / Innovación / Post viaje / 04.Mr. Xie CPRA (CAAM) / Preparación viaje octubre 2026 /
