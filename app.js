@@ -1081,7 +1081,8 @@
         d.pabellon = txt(r.pabellon); d.stand = txt(r.stand);
         // Sin columna de categoría: importante si el criterio es A (cremalleras/hidráulica) o B (EPS)
         d.categoria = cat ? ((cat.startsWith('menos') || cat.startsWith('secund') || cat === 'baja' || cat === 'b' || cat === '2') ? 'secundario' : 'importante')
-          : (prep.criterio ? (/\b[AB]\b/.test(prep.criterio) ? 'importante' : 'secundario') : 'importante');
+          : (prep.criterio ? (/\b[AB]\b/.test(prep.criterio) ? 'importante' : 'secundario') : '');
+        if (!d.categoria && !state.empresas.some(x => norm(x.nombre) === norm(d.nombre))) d.categoria = 'importante';
       }
       else { d.fecha = aFecha(r.fecha); d.hora = aHora(r.hora); d.direccion = txt(r.direccion); }
       if (r.visitado !== undefined && txt(r.visitado)) d.visitado = ['si', 'x', 'true', '1', 'yes'].includes(norm(r.visitado));
@@ -1094,9 +1095,16 @@
     if (vuelos || hoteles) await parchear(VIAJE, { set: Object.assign({}, vuelos ? { vuelos } : {}, hoteles ? { hoteles } : {}) });
     for (const d of empresas) {
       const previa = state.empresas.find(x => norm(x.nombre) === norm(d.nombre) && (x.tipo === 'visita') === (d.tipo === 'visita'));
-      const id = previa ? previa.id : uid();
-      if (!previa) d.id = id;
-      await parchear(rutaEmpresa(id), { set: d });
+      if (!previa) { d.id = uid(); await parchear(rutaEmpresa(d.id), { set: d }); continue; }
+      // Empresa ya existente: solo se actualizan los datos que el Excel trae con valor.
+      // Así no se borra lo escrito en la app (contacto, email…) ni las notas y fotos.
+      const cambios = {};
+      Object.keys(d).forEach(k => {
+        const v = d[k];
+        if (k === 'prep') cambios.prep = Object.assign({}, previa.prep || {}, Object.fromEntries(Object.entries(v).filter(([, x]) => x)));
+        else if (typeof v === 'boolean' || (v != null && String(v).trim() !== '')) cambios[k] = v;
+      });
+      await parchear(rutaEmpresa(previa.id), { set: cambios });
     }
     if (empresas.length) { state.tab = 'eventos'; state.sub = empresas[0].tipo; }
     pintar();
