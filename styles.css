@@ -335,3 +335,32 @@ a.menu-item { text-decoration: none; color: inherit; }
 .en-feria { display: block; background: var(--azul); color: #2D4A5E; font-size: 13px; font-weight: 600; padding: 8px 16px; cursor: pointer; }
 .ficha .en-feria { border-radius: 10px; margin-bottom: 12px; }
 .nota-txt { font-style: normal; }
+
+/* ═══ Prioridad por color (verde principal, amarillo secundaria alta, sin color secundaria baja) ═══ */
+:root { --v-fondo: #E7F6EC; --v-borde: #A9DDBF; --v-fuerte: #3BAA6B; --a-fondo: #FFF7D3; --a-borde: #F0DC8C; --a-fuerte: #E0B73A; }
+.card.niv0 { background: var(--v-fondo); border-color: var(--v-borde); border-left: 5px solid var(--v-fuerte); }
+.card.niv1 { background: var(--a-fondo); border-color: var(--a-borde); border-left: 5px solid var(--a-fuerte); }
+.card.niv2 { background: var(--card); border-left: 5px solid var(--line); }
+.badge.verde { background: #CDEFD9; color: #1F6B43; }
+.badge.amarillo { background: #FBE9A6; color: #7A5A00; }
+.badge.gris { background: #EEEAF3; color: #6B6080; }
+.leyenda { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.ley { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 8px; border: 1px solid var(--line); color: var(--text); }
+.ley.niv0 { background: var(--v-fondo); border-color: var(--v-borde); }
+.ley.niv1 { background: var(--a-fondo); border-color: var(--a-borde); }
+.ley.niv2 { background: #fff; }
+
+/* Tarjetas con botón Visita */
+.card.empresa { padding: 0; overflow: hidden; display: block; }
+.emp-body { display: grid; gap: 3px; width: 100%; padding: 14px 16px 6px; text-align: left; }
+.emp-pie { display: flex; justify-content: flex-end; padding: 0 12px 10px; }
+.parada { flex-wrap: wrap; }
+.parada .emp-pie { flex-basis: 100%; padding: 0; }
+.selec .emp-pie { padding-top: 8px; }
+.btn-visita { border: 1.5px solid #C9BEDD; background: #fff; color: var(--soft); font-weight: 700; font-size: 13px; padding: 6px 14px; border-radius: 999px; text-align: center; }
+.btn-visita.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-visita:disabled { opacity: 1; }
+.v-plan { display: inline-block; background: var(--menta); color: #1F4A3A; border-radius: 8px; padding: 3px 8px; font-size: 12.5px; font-weight: 600; margin-top: 2px; }
+.hecho-suave .emp-body b { text-decoration: none; }
+.bloque-visita { background: #F2FAF5; border: 1px solid #BFE6CF; border-radius: 14px; padding: 12px; margin-bottom: 12px; display: grid; gap: 8px; }
+.bloque-visita .campos { margin-bottom: 0; }

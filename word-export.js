@@ -46,6 +46,7 @@
       BorderStyle, AlignmentType, HeadingLevel, Header, Footer, PageNumber, PageBreak, TableLayoutType } = D;
     const { CFG, usuario, viaje, feria, visitas, incluirFotos, leerFoto, progreso } = o;
     const selec = o.seleccionadas || [];
+    const aVis = o.aVisitar || [];
     const U = CFG.USUARIOS;
     const colorU = u => PASTEL['u' + Math.max(0, U.indexOf(u))];
 
@@ -193,6 +194,19 @@
     if (nViaje.length) viajeSec.push(new Paragraph({ heading: HeadingLevel.HEADING_2, children: [run('Notas del viaje')] }), ...nViaje);
     if (nRuta.length) viajeSec.push(new Paragraph({ heading: HeadingLevel.HEADING_2, children: [run('Notas de la ruta')] }), ...nRuta);
 
+    // ---------- Empresas a visitar ----------
+    const visitarSec = [];
+    if (aVis.length) {
+      visitarSec.push(new Paragraph({ children: [new PageBreak()] }), new Paragraph({ heading: HeadingLevel.HEADING_1, children: [run('Empresas a visitar')] }),
+        new Paragraph({ spacing: { after: 200 }, children: [run('Visitas a fábrica marcadas en la app, agrupadas por zona.', { color: GRIS_SUAVE, size: 19 })] }));
+      const zonas = [...new Set(aVis.map(v => v.zona))];
+      for (const z of zonas) {
+        visitarSec.push(new Paragraph({ heading: HeadingLevel.HEADING_3, children: [run(z.toUpperCase())] }));
+        visitarSec.push(tablaListado(['Empresa', 'Ciudad', 'Día y hora', 'Origen', 'Hecha'], [3000, 1900, 1700, 2138, 900],
+          aVis.filter(v => v.zona === z).map(v => [v.nombre, v.ciudad || '', [v.fecha ? fechaCorta(v.fecha) : '', v.hora].filter(Boolean).join(' ') || 'Sin fecha', v.tipo, v.hecha ? 'Sí' : ''])));
+      }
+    }
+
     // ---------- Fichas de empresa ----------
     async function ficha(e, i, total, esFeria, esSelec) {
       progreso && progreso(i, total, e.nombre);
@@ -204,6 +218,7 @@
       const datos = tablaDatos([
         esSelec ? ['En la feria', e._feria ? (e.enFeriaDuda ? 'Posiblemente: ' : '') + 'Pabellón ' + (e._feria.pabellon || '¿?') + ' · Stand ' + (e._feria.stand || '¿?') : ''] : esFeria ? ['Pabellón / stand', (e.pabellon ? 'Pabellón ' + e.pabellon : 'Sin pabellón') + (e.stand ? ' · Stand ' + e.stand : '')] : ['Cuándo', [fechaLarga(e.fecha), e.hora].filter(Boolean).join(' · ')],
         ['Estado', estado],
+        ['Visita a fábrica', e.visita ? ['Sí', e.fecha ? fechaCorta(e.fecha) : '', e.hora, e.visitaHecha ? 'hecha' : ''].filter(Boolean).join(' · ') : ''],
         ['Ubicación', [e.direccion, e.ciudad, e.pais].filter(Boolean).join(', ')],
         ['Contacto', [e.contacto, e.rol].filter(Boolean).join(' · ')],
         ['Email', e.email], ['Teléfono', e.telefono], ['Web / WeChat', e.web]
@@ -272,7 +287,7 @@
             new TextRun({ children: [PageNumber.CURRENT], size: 16, color: GRIS_SUAVE })] })] }),
           first: new Footer({ children: [new Paragraph({ children: [] })] })
         },
-        children: [...portada, ...viajeSec, ...feriaSec, ...selecSec, ...visitasSec]
+        children: [...portada, ...viajeSec, ...visitarSec, ...feriaSec, ...selecSec, ...visitasSec]
       }]
     });
     const blob = await Packer.toBlob(doc);

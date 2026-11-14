@@ -47,7 +47,7 @@
   const state = {
     user: null,
     tab: ls.get('ams26:tab') || 'general',
-    sub: ls.get('ams26:sub') || 'feria',
+    modoVisitar: ls.get('ams26:modoVisitar') || 'zona',
     modoRuta: ls.get('ams26:modo') || 'pabellones',
     filtro: 'todos',
     viaje: { vuelos: [], hoteles: [], usuarios: {} },
@@ -56,11 +56,12 @@
   };
 
   const bloque = (doc, u) => ((doc && doc.usuarios) || {})[u || state.user] || {};
+  const tipoDe = e => (e && e.tipo) || 'feria';
   // Prioridad de visita en tres niveles (compatible con los valores antiguos importante/secundario)
   const NIVELES = [
-    { k: 'principal', txt: '⭐ Principal', plural: '⭐ Principales', badge: 'rosa' },
-    { k: 'alta', txt: 'Secundaria alta', plural: 'Secundaria alta', badge: 'lila' },
-    { k: 'baja', txt: 'Secundaria baja', plural: 'Secundaria baja', badge: 'crema' }
+    { k: 'principal', txt: '⭐ Principal', plural: '⭐ Principales', badge: 'verde' },
+    { k: 'alta', txt: 'Secundaria alta', plural: 'Secundaria alta', badge: 'amarillo' },
+    { k: 'baja', txt: 'Secundaria baja', plural: 'Secundaria baja', badge: 'gris' }
   ];
   const nivel = e => {
     const c = String((e && e.categoria) || '').toLowerCase();
@@ -70,8 +71,8 @@
   };
   const esImportante = e => nivel(e) === 0;
   const badgeNivel = e => `<span class="badge ${NIVELES[nivel(e)].badge}">${NIVELES[nivel(e)].txt}</span>`;
+  const claseNivel = e => tipoDe(e) === 'feria' ? 'niv' + nivel(e) : '';
   const badgeLinea = e => (e.prep && e.prep.linea) ? `<span class="badge azul">${esc(e.prep.linea)}</span>` : '';
-  const tipoDe = e => (e && e.tipo) || 'feria';
   const feria = () => state.empresas.filter(e => tipoDe(e) === 'feria');
   const visitas = () => state.empresas.filter(e => tipoDe(e) === 'visita');
   const seleccionadas = () => state.empresas.filter(e => tipoDe(e) === 'seleccionada')
@@ -212,14 +213,15 @@
     ['general', '🏨', 'General'],
     ['eventos', '📅', 'Eventos'],
     ['seleccionadas', '🎯', 'Seleccionadas'],
-    ['ruta', '🗺️', 'Ruta stands'],
+    ['ruta', '🗺️', 'Ruta optimizada'],
+    ['visitar', '🏭', 'A visitar empresas'],
     ['resumen', '📊', 'Resumen'],
     ['presentaciones', '📁', 'Presentaciones']
   ];
 
   function pintar() {
     const y = window.scrollY;
-    const vistas = { general: vistaGeneral, eventos: vistaEventos, seleccionadas: vistaSeleccionadas, ruta: vistaRuta, resumen: vistaResumen, presentaciones: vistaPresentaciones };
+    const vistas = { general: vistaGeneral, eventos: vistaEventos, seleccionadas: vistaSeleccionadas, ruta: vistaRuta, visitar: vistaVisitar, resumen: vistaResumen, presentaciones: vistaPresentaciones };
     root.innerHTML = `
       <header class="marca">
         <img src="lizarte-logo.png" alt="Lizarte" class="marca-logo" width="120" height="34">
@@ -367,17 +369,26 @@
       : 'Pab. ' + esc(e.pabellon || '¿?') + ' · Stand ' + esc(e.stand || '¿?');
     const resumen = CFG.USUARIOS.map(u => bloque(e, u).texto).find(t => (t || '').trim()) || '';
     return `
-      <button class="card empresa ${t === 'feria' && esImportante(e) ? 'imp' : ''}" data-ficha="${esc(e.id)}">
-        <span class="emp-top"><b>${esc(e.nombre || 'Sin nombre')}</b>${e.visitado ? '<span class="badge menta">✓ Visitado</span>' : ''}</span>
-        ${e.nombreZh ? `<span class="zh">${esc(e.nombreZh)}</span>` : ''}
-        <span class="muted">${linea}</span>
-        ${e.contacto ? `<span class="muted small">👤 ${esc(e.contacto)}${e.rol ? ' · ' + esc(e.rol) : ''}</span>` : ''}
-        ${e.ciudad && t === 'feria' ? `<span class="muted small">📍 ${esc(e.ciudad)}${e.pais && e.pais !== 'China' ? ', ' + esc(e.pais) : ''}</span>` : ''}
-        ${resumen ? `<span class="extracto">${esc(resumen.slice(0, 140))}${resumen.length > 140 ? '…' : ''}</span>` : ''}
-        ${e.prep && e.prep.grupo ? `<span class="muted small">🔧 ${esc(e.prep.grupo)}</span>` : ''}
-        <span class="tags">${t === 'feria' ? badgeNivel(e) : '<span class="badge lila">🏢 Visita</span>'}${badgeLinea(e)}${marcasEmpresa(e)}</span>
-      </button>`;
+      <div class="card empresa ${claseNivel(e)} ${e.visitado ? 'hecho-suave' : ''}">
+        <button class="emp-body" data-ficha="${esc(e.id)}">
+          <span class="emp-top"><b>${esc(e.nombre || 'Sin nombre')}</b>${e.visitado ? '<span class="badge menta">✓ Visitado</span>' : ''}</span>
+          ${e.nombreZh ? `<span class="zh">${esc(e.nombreZh)}</span>` : ''}
+          <span class="muted">${linea}</span>
+          ${e.contacto ? `<span class="muted small">👤 ${esc(e.contacto)}${e.rol ? ' · ' + esc(e.rol) : ''}</span>` : ''}
+          ${e.ciudad && t === 'feria' ? `<span class="muted small">📍 ${esc(e.ciudad)}${e.pais && e.pais !== 'China' ? ', ' + esc(e.pais) : ''}</span>` : ''}
+          ${lineaVisita(e)}
+          ${resumen ? `<span class="extracto">${esc(resumen.slice(0, 140))}${resumen.length > 140 ? '…' : ''}</span>` : ''}
+          ${e.prep && e.prep.grupo ? `<span class="muted small">🔧 ${esc(e.prep.grupo)}</span>` : ''}
+          <span class="tags">${t === 'feria' ? badgeNivel(e) : '<span class="badge lila">🏢 Visita</span>'}${badgeLinea(e)}${marcasEmpresa(e)}</span>
+        </button>
+        <div class="emp-pie">${botonVisita(e)}</div>
+      </div>`;
   }
+
+  // Botón para marcar la empresa como visita a fábrica
+  const botonVisita = e => `<button class="btn-visita ${e.visita || tipoDe(e) === 'visita' ? 'on' : ''}" data-visita="${esc(e.id)}" ${tipoDe(e) === 'visita' ? 'disabled' : ''}>${e.visita || tipoDe(e) === 'visita' ? '✓ Visita' : '🏭 Visita'}</button>`;
+  const lineaVisita = e => (e.visita || tipoDe(e) === 'visita') && (e.fecha || e.hora || e.direccion)
+    ? `<span class="v-plan">📅 ${esc([e.fecha ? diaTxt(fechaHora(e.fecha)) : 'Sin fecha', e.hora].filter(Boolean).join(' · '))}${e.direccion ? ' · ' + esc(e.direccion) : ''}${e.visitaHecha ? ' · ✓ hecha' : ''}</span>` : '';
 
   function lineaFeria(e) {
     const f = empresaFeria(e);
@@ -397,10 +408,12 @@
           ${p.procedencia ? `<span class="muted small">📥 ${esc(p.procedencia)}</span>` : ''}
           ${p.tamano ? `<span class="muted small">👥 ${esc(p.tamano)}</span>` : ''}
           ${p.observacion ? `<span class="extracto">${esc(p.observacion)}</span>` : ''}
+          ${lineaVisita(e)}
           ${resumen ? `<span class="extracto nota-txt">📝 ${esc(resumen.slice(0, 140))}${resumen.length > 140 ? '…' : ''}</span>` : ''}
           <span class="tags">${e.prioritaria ? '<span class="badge rosa">⭐ Prioritaria</span>' : ''}<span class="badge azul">🎯 Seleccionada</span>${marcasEmpresa(e)}</span>
         </button>
         ${lineaFeria(e)}
+        <div class="emp-pie">${botonVisita(e)}</div>
       </div>`;
   }
 
@@ -422,45 +435,103 @@
   }
 
   function vistaEventos() {
-    const chip = (id, txt) => `<button class="chip-tab ${state.sub === id ? 'on' : ''}" data-sub="${id}">${txt}</button>`;
-    let cuerpo;
-    if (state.sub === 'visita') {
-      const lista = visitas().sort((a, b) => nat((a.fecha || '9') + (a.hora || ''), (b.fecha || '9') + (b.hora || '')) || nat(a.nombre, b.nombre));
-      cuerpo = `
-        <div class="card cabecera">
-          <span class="badge lila">VISITAS · CHINA</span>
-          <h2 class="titulo-serif">Visita a empresas</h2>
-          <p class="muted">${lista.length} ${lista.length === 1 ? 'empresa' : 'empresas'} · fuera de la feria</p>
-        </div>
-        <div class="acciones-fila"><button class="btn primary" data-nuevo="visita">+ Añadir empresa</button></div>
-        ${lista.length ? lista.map(tarjetaEmpresa).join('') : '<p class="vacio">Aún no hay visitas. Pásame la lista y las cargo, o añádelas aquí.</p>'}`;
-    } else {
-      const lista = feria().sort((a, b) => nat(a.nombre, b.nombre));
-      const imp = lista.filter(esImportante);
-      const porNivel = [0, 1, 2].map(n => lista.filter(e => nivel(e) === n));
-      const grupo = (titulo, items, abierto) => items.length ? `
-        <details class="grupo-det" ${abierto ? 'open' : ''}>
-          <summary>${titulo} (${items.length})</summary>
-          ${items.map(tarjetaEmpresa).join('')}
-        </details>` : '';
-      cuerpo = `
-        <div class="card cabecera">
-          <span class="badge rosa">FERIA · SHANGHÁI</span>
-          <h2 class="titulo-serif">Automechanika Shanghai</h2>
-          <p class="muted">${lista.length} empresas · ${imp.length} principales · ${lista.filter(e => e.visitado).length} visitadas</p>
-        </div>
-        <div class="acciones-fila">
-          <button class="btn primary" data-nuevo="feria">+ Añadir empresa</button>
-          <button class="btn soft" data-tab="ruta">🗺️ Ver ruta</button>
-        </div>
-        ${lista.length ? porNivel.map((l, n) => grupo(NIVELES[n].plural, l, n < 2)).join('') : '<p class="vacio">Aún no hay empresas de la feria. Impórtalas desde Excel con el menú ⋯.</p>'}`;
-    }
+    const lista = feria().sort((a, b) => nat(a.nombre, b.nombre));
+    const imp = lista.filter(esImportante);
+    const porNivel = [0, 1, 2].map(n => lista.filter(e => nivel(e) === n));
+    const grupo = (titulo, items, abierto) => items.length ? `
+      <details class="grupo-det" ${abierto ? 'open' : ''}>
+        <summary>${titulo} (${items.length})</summary>
+        ${items.map(tarjetaEmpresa).join('')}
+      </details>` : '';
     return `
       <section>
         <div class="sec-head"><h2>📅 Eventos</h2></div>
-        <div class="chip-tabs">${chip('feria', '🏭 Automechanika Shanghai')}${chip('visita', '🏢 Visita a empresas')}</div>
-        ${cuerpo}
+        <div class="card cabecera">
+          <span class="badge rosa">FERIA · SHANGHÁI</span>
+          <h2 class="titulo-serif">Automechanika Shanghai</h2>
+          <p class="muted">${lista.length} empresas · ${imp.length} principales · ${lista.filter(e => e.visitado).length} visitadas · ${lista.filter(e => e.visita).length} marcadas para visitar</p>
+          <div class="leyenda"><span class="ley niv0">Principal</span><span class="ley niv1">Secundaria alta</span><span class="ley niv2">Secundaria baja</span></div>
+        </div>
+        <div class="acciones-fila">
+          <button class="btn primary" data-nuevo="feria">+ Añadir empresa</button>
+          <button class="btn soft" data-tab="ruta">🗺️ Ruta optimizada</button>
+        </div>
+        ${lista.length ? porNivel.map((l, n) => grupo(NIVELES[n].plural, l, n < 2)).join('') : '<p class="vacio">Aún no hay empresas de la feria. Impórtalas desde Excel con el menú ⋯.</p>'}
       </section>`;
+  }
+
+  // ═══════════ A visitar empresas (visitas a fábrica) ═══════════
+  const ZONAS = [
+    ['hebei', 'Hebei', /\b(hebei|cangzhou|hejian|baoding|xingtai|langfang|xianghe|anping|qinghe|shijiazhuang|tangshan|handan)\b/],
+    ['canton', 'Cantón / Guangdong', /\b(guangdong|guangzhou|cant[oó]n|foshan|shenzhen|dongguan|huadu|wuzhou|zhongshan|jiangmen|zhuhai)\b/],
+    ['este', 'Este (Shanghái, Zhejiang, Jiangsu, Anhui)', /\b(shanghai|shanghái|minhang|zhejiang|jiangsu|anhui|taizhou|hangzhou|ningbo|wenzhou|yuhuan|jiangshan|suzhou|nanjing|changzhou|jinhua|quzhou|zhuji|wuhu|huangshan|yangzhou|zhangjiagang|suqian|xinchang|binhai|wuxi|jiaxing|shaoxing)\b/],
+    ['chongqing', 'Chongqing / Sichuan', /\b(chongqing|sichuan|chengdu|mianyang|nanchong)\b|南充|绵阳/],
+    ['otras', 'Otras zonas de China', /./]
+  ];
+  function zonaDe(e) {
+    const f = tipoDe(e) === 'seleccionada' ? empresaFeria(e) : null;
+    const texto = [e.ciudad, e.direccion, f && f.ciudad, e.nombre].filter(Boolean).join(' ').toLowerCase();
+    if (e.pais && !/china/i.test(e.pais)) return ['fuera', 'Fuera de China'];
+    if (!e.ciudad && !e.direccion && !(f && f.ciudad) && !ZONAS.slice(0, 4).some(z => z[2].test(texto))) return ['sin', 'Sin ciudad indicada'];
+    const z = ZONAS.find(z => z[2].test(texto));
+    return [z[0], z[1]];
+  }
+  // Empresas marcadas para visitar; si una seleccionada y su ficha de la feria están marcadas, sale una vez
+  function aVisitar() {
+    const marcadas = state.empresas.filter(e => e.visita || tipoDe(e) === 'visita');
+    const cubiertas = new Set(marcadas.filter(e => tipoDe(e) === 'seleccionada').map(e => empresaFeria(e)).filter(Boolean).map(f => f.id));
+    return marcadas.filter(e => !cubiertas.has(e.id));
+  }
+
+  function vistaVisitar() {
+    const lista = aVisitar();
+    const modo = state.modoVisitar || 'zona';
+    const seg = (valor, txt) => `<button class="${modo === valor ? 'on' : ''}" data-set="modoVisitar" data-val="${valor}">${txt}</button>`;
+    const orden = (a, b) => nat((a.fecha || '9999') + (a.hora || ''), (b.fecha || '9999') + (b.hora || '')) || nat(a.nombre, b.nombre);
+    const grupos = new Map();
+    if (modo === 'dia') {
+      [...lista].sort(orden).forEach(e => {
+        const g = e.fecha ? diaTxt(fechaHora(e.fecha)) : 'Sin fecha';
+        if (!grupos.has(g)) grupos.set(g, []);
+        grupos.get(g).push(e);
+      });
+    } else {
+      const orden_z = ['hebei', 'canton', 'este', 'chongqing', 'otras', 'fuera', 'sin'];
+      [...lista].sort((a, b) => orden_z.indexOf(zonaDe(a)[0]) - orden_z.indexOf(zonaDe(b)[0]) || orden(a, b)).forEach(e => {
+        const g = zonaDe(e)[1];
+        if (!grupos.has(g)) grupos.set(g, []);
+        grupos.get(g).push(e);
+      });
+    }
+    const hechas = lista.filter(e => e.visitaHecha).length;
+    const conFecha = lista.filter(e => e.fecha).length;
+    return `
+      <section>
+        <div class="sec-head"><h2>🏭 A visitar empresas</h2></div>
+        <div class="card cabecera">
+          <span class="badge menta">VISITAS A FÁBRICA</span>
+          <h2 class="titulo-serif">Empresas a visitar</h2>
+          <p class="muted">Las marcadas con el botón «Visita» en cualquier pestaña. Indica en cada ficha el día, la hora, la ciudad y la dirección.</p>
+          <p class="muted">${lista.length} empresas · ${conFecha} con fecha · ${hechas} visitadas</p>
+        </div>
+        <div class="seg">${seg('zona', 'Por zona')}${seg('dia', 'Por día')}</div>
+        <div class="acciones-fila"><button class="btn primary" data-nuevo="visita">+ Añadir otra empresa</button></div>
+        ${lista.length ? [...grupos.entries()].map(([g, items]) => `<h3 class="grupo">${esc(g)} (${items.length})</h3>${items.map(tarjetaEmpresa).join('')}`).join('')
+          : '<p class="vacio">Todavía no hay empresas marcadas. Pulsa «🏭 Visita» en las tarjetas de Eventos, Seleccionadas o Ruta optimizada.</p>'}
+      </section>`;
+  }
+
+  async function toggleVisita(id) {
+    const e = empresaPorId(id);
+    if (!e || tipoDe(e) === 'visita') return;
+    const nuevo = !e.visita;
+    // Misma empresa en Seleccionadas y en la feria: se marcan las dos
+    const enlazadas = tipoDe(e) === 'seleccionada'
+      ? [empresaFeria(e)].filter(Boolean)
+      : seleccionadas().filter(x => empresaFeria(x) && empresaFeria(x).id === e.id);
+    for (const x of [e, ...enlazadas]) await parchear(rutaEmpresa(x.id), { set: { visita: nuevo } });
+    toast(nuevo ? 'Añadida a «A visitar empresas»' : 'Quitada de «A visitar empresas»');
+    pintar();
   }
 
   // ═══════════ Ruta optimizada de stands ═══════════
@@ -488,19 +559,20 @@
         const cab = g !== grupoActual ? `<h3 class="grupo">${esc(g)}</h3>` : '';
         grupoActual = g;
         return cab + `
-          <div class="card parada ${esImportante(e) ? 'imp' : ''} ${e.visitado ? 'hecho' : ''}">
+          <div class="card parada ${claseNivel(e)} ${e.visitado ? 'hecho' : ''}">
             <button class="check" data-visitado="${esc(e.id)}" aria-label="Marcar visitado">${e.visitado ? '✓' : ''}</button>
             <button class="parada-body" data-ficha="${esc(e.id)}">
               <span class="emp-top"><span class="num">${orden}</span><b>${esc(e.nombre || 'Sin nombre')}</b></span>
               <span class="muted">Pab. ${esc(e.pabellon || '¿?')} · Stand ${esc(e.stand || '¿?')}</span>
               <span class="tags">${badgeNivel(e)}${badgeLinea(e)}${marcasEmpresa(e)}</span>
             </button>
+            <div class="emp-pie">${botonVisita(e)}</div>
           </div>`;
       }).join('');
     }
     return `
       <section>
-        <div class="sec-head"><h2>🗺️ Ruta por la feria</h2></div>
+        <div class="sec-head"><h2>🗺️ Ruta optimizada</h2></div>
         <div class="card resumen-ruta">
           <div class="cifras"><div><b>${total}</b><span>stands</span></div><div><b>${imp}</b><span>principales</span></div><div><b>${hechos}</b><span>visitados</span></div></div>
           <div class="barra"><span style="width:${total ? Math.round(hechos * 100 / total) : 0}%"></span></div>
@@ -528,6 +600,7 @@
           ${tile(f.filter(esImportante).length, 'principales', 'rosa')}
           ${tile(f.filter(e => e.visitado).length + ' / ' + f.length, 'stands visitados', 'menta')}
           ${tile(seleccionadas().length, 'seleccionadas', 'azul')}
+          ${tile(aVisitar().length, 'a visitar en fábrica', 'menta')}
           ${tile(v.length, 'visitas a empresas', 'lila')}
           ${tile(fotos, 'fotos', 'crema')}
           ${tile(state.viaje.vuelos.length, 'vuelos', 'azul')}
@@ -536,7 +609,7 @@
       <section>
         <div class="sec-head"><h2>📝 Lo que hemos anotado</h2></div>
         ${conNotas.length ? conNotas.map(e => `
-          <button class="card resumen-emp" data-ficha="${esc(e.id)}">
+          <button class="card resumen-emp ${claseNivel(e)}" data-ficha="${esc(e.id)}">
             <span class="emp-top"><b>${esc(e.nombre)}</b><span class="badge ${({ visita: 'lila', seleccionada: 'azul' })[tipoDe(e)] || NIVELES[nivel(e)].badge}">${({ visita: 'Visita', seleccionada: 'Seleccionada' })[tipoDe(e)] || 'Feria'}</span></span>
             ${CFG.USUARIOS.map(u => {
               const b = bloque(e, u), n = (b.fotos || []).length, t = (b.texto || '').trim();
@@ -734,7 +807,7 @@
     const contacto = [{ k: 'contacto', label: 'Persona de contacto', ph: 'Ej: Wang Li', half: true }, { k: 'rol', label: 'Rol', ph: 'Ej: Director comercial', half: true },
       { k: 'email', label: 'Email', type: 'email', half: true }, { k: 'telefono', label: 'Teléfono', type: 'tel', half: true }, { k: 'web', label: 'Web o WeChat', ph: 'www…' }];
     if (tipo === 'feria') propios.push({ k: 'ciudad', label: 'Ciudad', half: true }, { k: 'pais', label: 'País', half: true });
-    if (tipo === 'seleccionada') propios.splice(0, 1, { k: 'ciudad', label: 'Ciudad', half: true }, { k: 'pais', label: 'País', half: true });
+    if (tipo === 'seleccionada') propios.splice(0, propios.length, { k: 'ciudad', label: 'Ciudad', half: true }, { k: 'pais', label: 'País', half: true });
     const opciones = (nombre, val, ops) => `<div class="seg form-seg">${ops.map(([k, t]) => `<label><input type="radio" name="${nombre}" value="${k}" ${val === k ? 'checked' : ''}><span>${t}</span></label>`).join('')}</div>`;
 
     const m = abrirModal(`
@@ -747,6 +820,14 @@
           ${contacto.map(c => campoHTML(c, v)).join('')}
           <label class="campo check-campo"><input type="checkbox" name="visitado" ${v.visitado ? 'checked' : ''}><span>Ya visitada</span></label>
           ${tipo === 'seleccionada' ? `<label class="campo check-campo"><input type="checkbox" name="prioritaria" ${v.prioritaria ? 'checked' : ''}><span>⭐ Prioritaria</span></label>` : ''}
+        </div>
+        <div class="bloque-visita">
+          <div class="prep-tit">🏭 Visita a fábrica</div>
+          ${tipo !== 'visita' ? `<label class="campo check-campo"><input type="checkbox" name="visita" ${v.visita ? 'checked' : ''}><span>Vamos a visitarla (sale en «A visitar empresas»)</span></label>` : ''}
+          <div class="campos">
+            ${tipo !== 'visita' ? [{ k: 'fecha', label: 'Día', type: 'date', half: true }, { k: 'hora', label: 'Hora', type: 'time', half: true }, { k: 'direccion', label: 'Dirección de la fábrica' }].map(c => campoHTML(c, v)).join('') : ''}
+            <label class="campo check-campo"><input type="checkbox" name="visitaHecha" ${v.visitaHecha ? 'checked' : ''}><span>Visita hecha</span></label>
+          </div>
         </div>
         ${tipo === 'seleccionada' && e ? lineaFeria(e) : ''}
         ${prepHTML(v)}
@@ -768,10 +849,21 @@
       if (!datos.nombre) { toast('Pon al menos el nombre de la empresa'); return; }
       if (tipo === 'feria') datos.categoria = fd.get('categoria') || 'principal';
       datos.visitado = fd.get('visitado') === 'on';
+      datos.visitaHecha = fd.get('visitaHecha') === 'on';
+      if (tipo !== 'visita') {
+        datos.visita = fd.get('visita') === 'on';
+        ['fecha', 'hora', 'direccion'].forEach(k => { datos[k] = String(fd.get(k) || '').trim(); });
+      }
       if (tipo === 'seleccionada') datos.prioritaria = fd.get('prioritaria') === 'on';
       const nuevoId = e ? e.id : uid();
       if (!e) datos.id = nuevoId;
       await parchear(rutaEmpresa(nuevoId), { set: datos });
+      // Si cambia la marca de visita, se aplica también a la misma empresa en la otra pestaña
+      if (e && tipo !== 'visita' && !!e.visita !== datos.visita) {
+        const enlazadas = tipo === 'seleccionada' ? [empresaFeria(e)].filter(Boolean)
+          : seleccionadas().filter(x => empresaFeria(x) && empresaFeria(x).id === e.id);
+        for (const x of enlazadas) await parchear(rutaEmpresa(x.id), { set: { visita: datos.visita } });
+      }
       if (e) { cerrarModal(); toast('Ficha guardada'); }
       else { pintar(); abrirFicha(nuevoId); toast('Empresa creada. Ya puedes añadir notas y fotos.'); }
     });
@@ -922,12 +1014,13 @@
     }
     const cp = e.target.closest('[data-copiar]');
     if (cp) { copiarTexto(cp.dataset.copiar); return; }
-    const t = e.target.closest('[data-tab],[data-sub],[data-set],[data-nuevo],[data-editar],[data-ficha],[data-visitado],[data-present],[data-accion]');
+    const bv = e.target.closest('[data-visita]');
+    if (bv) { toggleVisita(bv.dataset.visita); return; }
+    const t = e.target.closest('[data-tab],[data-set],[data-nuevo],[data-editar],[data-ficha],[data-visitado],[data-present],[data-accion]');
     if (!t) return;
     const d = t.dataset;
     if (d.tab) { state.tab = d.tab; ls.set('ams26:tab', d.tab); pintar(); window.scrollTo(0, 0); }
-    else if (d.sub) { state.sub = d.sub; ls.set('ams26:sub', d.sub); pintar(); }
-    else if (d.set) { state[d.set] = d.val; if (d.set === 'modoRuta') ls.set('ams26:modo', d.val); pintar(); }
+    else if (d.set) { state[d.set] = d.val; if (d.set === 'modoRuta') ls.set('ams26:modo', d.val); if (d.set === 'modoVisitar') ls.set('ams26:modoVisitar', d.val); pintar(); }
     else if (d.nuevo) { if (d.nuevo === 'vuelo' || d.nuevo === 'hotel') editarViaje(d.nuevo); else abrirFicha(null, d.nuevo); }
     else if (d.editar) editarViaje(d.editar, d.id);
     else if (d.ficha) abrirFicha(d.ficha);
@@ -994,6 +1087,8 @@
     let ultimo = 0;
     try {
       const { blob, nombre } = await window.generarInformeWord({
+        aVisitar: aVisitar().map(e => ({ nombre: e.nombre, zona: zonaDe(e)[1], ciudad: e.ciudad || (empresaFeria(e) || {}).ciudad || '', fecha: e.fecha, hora: e.hora,
+          direccion: e.direccion, hecha: !!e.visitaHecha, tipo: tipoDe(e) === 'feria' ? 'Feria · ' + NIVELES[nivel(e)].txt.replace('⭐ ', '') : (tipoDe(e) === 'seleccionada' ? 'Seleccionada' : 'Otra') })),
         CFG, usuario: state.user, viaje: state.viaje, feria: feriaOrden, visitas: vis, seleccionadas: seleccionadas().filter(filtro).map(e => Object.assign({}, e, { _feria: empresaFeria(e) })), incluirFotos, horasAeropuerto,
         leerFoto: ruta => store.leerFoto(ruta),
         progreso: (i, n) => { if (i - ultimo >= 10) { ultimo = i; toast('Preparando el informe… ' + i + ' de ' + n); } }
@@ -1068,14 +1163,17 @@
       vuelos.map(v => { const ae = horasAeropuerto(v); return { Vuelo: v.numero, 'Aerolínea': v.aerolinea, Fecha: v.fecha, Hora: v.hora, Origen: v.origen, 'Terminal salida': v.terminalOrigen,
         'Fecha llegada': v.llegadaFecha, 'Hora llegada': v.llegadaHora, Destino: v.destino, 'Terminal llegada': v.terminalDestino, 'Estar en aeropuerto': ae ? diaTxt(ae.llegar) + ' ' + horaTxt(ae.llegar) : '' }; })), 'Vuelos');
     X.utils.book_append_sheet(wb, hoja(['Hotel', 'Ciudad', 'Entrada', 'Salida', 'Dirección', 'Dirección en chino', 'Teléfono'], state.viaje.hoteles.map(h => ({ Hotel: h.nombre, Ciudad: h.ciudad, Entrada: h.entrada, Salida: h.salida, 'Dirección': h.direccion, 'Dirección en chino': h.direccionZh, 'Teléfono': h.telefono }))), 'Hoteles');
-    X.utils.book_append_sheet(wb, hoja(['Orden', 'Empresa', 'Nombre chino', 'Pabellón', 'Stand', 'Categoría', 'Línea', 'Visitado', 'Contacto', 'Rol', 'Web', ...colsU],
+    X.utils.book_append_sheet(wb, hoja(['Empresa', 'Zona', 'Ciudad', 'Día', 'Hora', 'Dirección', 'Origen', 'Visita hecha', ...colsU],
+      aVisitar().map(e => Object.assign({ Empresa: e.nombre, Zona: zonaDe(e)[1], Ciudad: e.ciudad || (empresaFeria(e) || {}).ciudad || '', 'Día': e.fecha, Hora: e.hora, 'Dirección': e.direccion,
+        Origen: tipoDe(e) === 'feria' ? 'Feria (' + NIVELES[nivel(e)].txt.replace('⭐ ', '') + ')' : (tipoDe(e) === 'seleccionada' ? 'Seleccionada' : 'Otra'), 'Visita hecha': e.visitaHecha ? 'Sí' : 'No' }, notasDe(e)))), 'A visitar');
+    X.utils.book_append_sheet(wb, hoja(['Orden', 'Empresa', 'Nombre chino', 'Pabellón', 'Stand', 'Categoría', 'Línea', 'Visita', 'Visitado', 'Contacto', 'Rol', 'Web', ...colsU],
       calcularRuta().map(({ orden, e }) => Object.assign({ Orden: orden, Empresa: e.nombre, 'Nombre chino': e.nombreZh, 'Pabellón': e.pabellon, Stand: e.stand,
-        'Categoría': NIVELES[nivel(e)].txt.replace('⭐ ', ''), 'Línea': (e.prep || {}).linea || '', Visitado: e.visitado ? 'Sí' : 'No', Contacto: e.contacto, Rol: e.rol, Web: e.web }, notasDe(e)))), 'Feria');
+        'Categoría': NIVELES[nivel(e)].txt.replace('⭐ ', ''), 'Línea': (e.prep || {}).linea || '', Visita: e.visita ? 'Sí' : '', Visitado: e.visitado ? 'Sí' : 'No', Contacto: e.contacto, Rol: e.rol, Web: e.web }, notasDe(e)))), 'Feria');
     X.utils.book_append_sheet(wb, hoja(['Empresa', 'Nombre chino', 'Ciudad', 'Fecha', 'Hora', 'Dirección', 'Contacto', 'Rol', 'Web', 'Visitado', ...colsU],
       visitas().map(e => Object.assign({ Empresa: e.nombre, 'Nombre chino': e.nombreZh, Ciudad: e.ciudad, Fecha: e.fecha, Hora: e.hora, 'Dirección': e.direccion,
         Contacto: e.contacto, Rol: e.rol, Web: e.web, Visitado: e.visitado ? 'Sí' : 'No' }, notasDe(e)))), 'Visitas');
-    X.utils.book_append_sheet(wb, hoja(['Empresa', 'Prioritaria', 'Ciudad', 'Procedencia', 'Tamaño', 'Observación', 'En la feria', 'Contacto', 'Email', 'Teléfono', 'Visitada', ...colsU],
-      seleccionadas().map(e => { const f = empresaFeria(e), p = e.prep || {}; return Object.assign({ Empresa: e.nombre, Prioritaria: e.prioritaria ? 'Sí' : '', Ciudad: e.ciudad,
+    X.utils.book_append_sheet(wb, hoja(['Empresa', 'Prioritaria', 'Visita', 'Ciudad', 'Procedencia', 'Tamaño', 'Observación', 'En la feria', 'Contacto', 'Email', 'Teléfono', 'Visitada', ...colsU],
+      seleccionadas().map(e => { const f = empresaFeria(e), p = e.prep || {}; return Object.assign({ Empresa: e.nombre, Prioritaria: e.prioritaria ? 'Sí' : '', Visita: e.visita ? 'Sí' : '', Ciudad: e.ciudad,
         Procedencia: p.procedencia, 'Tamaño': p.tamano, 'Observación': p.observacion, 'En la feria': f ? 'Pab. ' + (f.pabellon || '') + ' · ' + (f.stand || '') : '',
         Contacto: e.contacto, Email: e.email, 'Teléfono': e.telefono, Visitada: e.visitado ? 'Sí' : 'No' }, notasDe(e)); })), 'Seleccionadas');
     X.utils.book_append_sheet(wb, hoja(['Usuario', 'Notas del viaje', 'Notas de la ruta'], CFG.USUARIOS.map(u => ({ Usuario: u, 'Notas del viaje': bloque(state.viaje, u).notasViaje || '', 'Notas de la ruta': bloque(state.viaje, u).notasRuta || '' }))), 'Notas');
@@ -1201,7 +1299,7 @@
       });
       await parchear(rutaEmpresa(previa.id), { set: cambios });
     }
-    if (empresas.length) { state.tab = 'eventos'; state.sub = empresas[0].tipo; }
+    if (empresas.length) state.tab = ({ visita: 'visitar', seleccionada: 'seleccionadas' })[empresas[0].tipo] || 'eventos';
     pintar();
     toast('Importado: ' + partes.join(', '));
   }
