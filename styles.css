@@ -364,3 +364,14 @@ a.menu-item { text-decoration: none; color: inherit; }
 .hecho-suave .emp-body b { text-decoration: none; }
 .bloque-visita { background: #F2FAF5; border: 1px solid #BFE6CF; border-radius: 14px; padding: 12px; margin-bottom: 12px; display: grid; gap: 8px; }
 .bloque-visita .campos { margin-bottom: 0; }
+
+/* Identificación de las principales (P1…P4) */
+.ident { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; justify-self: start; width: fit-content; max-width: 100%; font-size: 12px; font-weight: 600; padding: 3px 10px 3px 3px; border-radius: 999px; border: 1px solid transparent; margin-bottom: 2px; }
+.ident b { font-size: 11px; font-weight: 800; padding: 2px 7px; border-radius: 999px; background: #fff; }
+.ident.p1 { background: #E8E0F5; color: #5B4596; border-color: #CDBDEB; }
+.ident.p2 { background: #D6EEF8; color: #2D4A5E; border-color: #B5DCEE; }
+.ident.p3 { background: #FDE6D8; color: #8A4B22; border-color: #F5CBB0; }
+.ident.p4 { background: #FCE4F1; color: #A0005E; border-color: #F4C2DE; }
+.editor-head + .ident { margin: -4px 0 10px; }
+.subgrupo { margin: 14px 4px 6px; font-size: 13px; font-weight: 700; color: var(--soft); text-transform: uppercase; letter-spacing: .04em; }
+.subgrupo.p1 { color: #5B4596; } .subgrupo.p2 { color: #2D6A8A; } .subgrupo.p3 { color: #8A4B22; } .subgrupo.p4 { color: #A0005E; }

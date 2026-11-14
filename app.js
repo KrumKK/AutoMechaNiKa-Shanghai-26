@@ -73,6 +73,24 @@
   const badgeNivel = e => `<span class="badge ${NIVELES[nivel(e)].badge}">${NIVELES[nivel(e)].txt}</span>`;
   const claseNivel = e => tipoDe(e) === 'feria' ? 'niv' + nivel(e) : '';
   const badgeLinea = e => (e.prep && e.prep.linea) ? `<span class="badge azul">${esc(e.prep.linea)}</span>` : '';
+  // Identificación dentro de las principales (criterios de la reunión con Óscar).
+  // Sale sola del "Grupo de producto" del Excel; en la ficha se puede forzar o quitar (campo ident).
+  const IDENTS = [
+    { k: 'P1', txt: 'Dirección refabricación real', re: /^direcci[oó]n\s*·\s*reman/i },
+    { k: 'P2', txt: 'Dirección pieza nueva', re: /^direcci[oó]n\s*·\s*fabricante/i },
+    { k: 'P3', txt: 'Reman fuera de dirección', re: /^reman fuera de direcci/i },
+    { k: 'P4', txt: 'Reman, cascos y contactos', re: /^reman,?\s*cascos/i }
+  ];
+  const criterio = e => {
+    if (!e || tipoDe(e) !== 'feria' || e.ident === 'no') return -1;
+    const fijo = IDENTS.findIndex(c => c.k === e.ident);
+    if (fijo >= 0) return fijo;
+    if (nivel(e) !== 0) return -1;
+    return IDENTS.findIndex(c => c.re.test((e.prep && e.prep.grupo) || ''));
+  };
+  const ordCriterio = e => { const i = criterio(e); return i < 0 ? 99 : i; };
+  const identTxt = e => { const i = criterio(e); return i < 0 ? '' : IDENTS[i].k + ' · ' + IDENTS[i].txt; };
+  const badgeIdent = e => { const i = criterio(e); return i < 0 ? '' : `<span class="ident p${i + 1}"><b>${IDENTS[i].k}</b>${esc(IDENTS[i].txt)}</span>`; };
   const feria = () => state.empresas.filter(e => tipoDe(e) === 'feria');
   const visitas = () => state.empresas.filter(e => tipoDe(e) === 'visita');
   const seleccionadas = () => state.empresas.filter(e => tipoDe(e) === 'seleccionada')
@@ -371,6 +389,7 @@
     return `
       <div class="card empresa ${claseNivel(e)} ${e.visitado ? 'hecho-suave' : ''}">
         <button class="emp-body" data-ficha="${esc(e.id)}">
+          ${t === 'feria' ? badgeIdent(e) : ''}
           <span class="emp-top"><b>${esc(e.nombre || 'Sin nombre')}</b>${e.visitado ? '<span class="badge menta">✓ Visitado</span>' : ''}</span>
           ${e.nombreZh ? `<span class="zh">${esc(e.nombreZh)}</span>` : ''}
           <span class="muted">${linea}</span>
@@ -438,10 +457,21 @@
     const lista = feria().sort((a, b) => nat(a.nombre, b.nombre));
     const imp = lista.filter(esImportante);
     const porNivel = [0, 1, 2].map(n => lista.filter(e => nivel(e) === n));
-    const grupo = (titulo, items, abierto) => items.length ? `
+    // Las principales van subdivididas por identificación (P1…P4) y luego el resto
+    const conSubgrupos = items => {
+      let actual = null;
+      return [...items].sort((a, b) => ordCriterio(a) - ordCriterio(b) || nat(a.nombre, b.nombre)).map(e => {
+        const i = criterio(e);
+        const g = i < 0 ? 'Otras principales' : IDENTS[i].k + ' · ' + IDENTS[i].txt;
+        const cab = g !== actual ? `<h4 class="subgrupo ${i < 0 ? '' : 'p' + (i + 1)}">${esc(g)} (${items.filter(x => criterio(x) === i).length})</h4>` : '';
+        actual = g;
+        return cab + tarjetaEmpresa(e);
+      }).join('');
+    };
+    const grupo = (titulo, items, abierto, sub) => items.length ? `
       <details class="grupo-det" ${abierto ? 'open' : ''}>
         <summary>${titulo} (${items.length})</summary>
-        ${items.map(tarjetaEmpresa).join('')}
+        ${sub ? conSubgrupos(items) : items.map(tarjetaEmpresa).join('')}
       </details>` : '';
     return `
       <section>
@@ -456,7 +486,7 @@
           <button class="btn primary" data-nuevo="feria">+ Añadir empresa</button>
           <button class="btn soft" data-tab="ruta">🗺️ Ruta optimizada</button>
         </div>
-        ${lista.length ? porNivel.map((l, n) => grupo(NIVELES[n].plural, l, n < 2)).join('') : '<p class="vacio">Aún no hay empresas de la feria. Impórtalas desde Excel con el menú ⋯.</p>'}
+        ${lista.length ? porNivel.map((l, n) => grupo(NIVELES[n].plural, l, n < 2, n === 0)).join('') : '<p class="vacio">Aún no hay empresas de la feria. Impórtalas desde Excel con el menú ⋯.</p>'}
       </section>`;
   }
 
@@ -540,7 +570,10 @@
     const primerPab = p => String(p || '').split(/\s+y\s+|,|\//)[0].trim();
     const idx = p => { const i = orden.indexOf(primerPab(p)); return i < 0 ? orden.length + (primerPab(p) ? 0 : 1) : i; };
     const ordenados = feria().sort((a, b) => (idx(a.pabellon) - idx(b.pabellon)) || nat(a.pabellon, b.pabellon) || nat(a.stand, b.stand) || nat(a.nombre, b.nombre));
-    const ruta = state.modoRuta === 'importantes' ? [0, 1, 2].flatMap(n => ordenados.filter(e => nivel(e) === n)) : ordenados;
+    // Por prioridad: las principales salen agrupadas P1…P4 (y el resto), cada grupo en orden de pabellones
+    const ruta = state.modoRuta === 'importantes'
+      ? [0, 1, 2].flatMap(n => { const l = ordenados.filter(e => nivel(e) === n); return n === 0 ? l.sort((a, b) => ordCriterio(a) - ordCriterio(b)) : l; })
+      : ordenados;
     return ruta.map((e, i) => ({ orden: i + 1, e }));
   }
 
@@ -555,13 +588,16 @@
     else {
       let grupoActual = null;
       lista = visibles.map(({ orden, e }) => {
-        const g = state.modoRuta === 'importantes' ? NIVELES[nivel(e)].plural : 'Pabellón ' + (e.pabellon || 'sin indicar');
+        const g = state.modoRuta === 'importantes'
+          ? NIVELES[nivel(e)].plural + (nivel(e) === 0 ? ' · ' + (identTxt(e) || 'otras') : '')
+          : 'Pabellón ' + (e.pabellon || 'sin indicar');
         const cab = g !== grupoActual ? `<h3 class="grupo">${esc(g)}</h3>` : '';
         grupoActual = g;
         return cab + `
           <div class="card parada ${claseNivel(e)} ${e.visitado ? 'hecho' : ''}">
             <button class="check" data-visitado="${esc(e.id)}" aria-label="Marcar visitado">${e.visitado ? '✓' : ''}</button>
             <button class="parada-body" data-ficha="${esc(e.id)}">
+              ${badgeIdent(e)}
               <span class="emp-top"><span class="num">${orden}</span><b>${esc(e.nombre || 'Sin nombre')}</b></span>
               <span class="muted">Pab. ${esc(e.pabellon || '¿?')} · Stand ${esc(e.stand || '¿?')}</span>
               <span class="tags">${badgeNivel(e)}${badgeLinea(e)}${marcasEmpresa(e)}</span>
@@ -781,7 +817,7 @@
 
   // ═══════════ Ficha de empresa (datos compartidos + bloque de cada usuario con texto y fotos) ═══════════
   // Datos de la preparación (Excel de empresas confirmadas): solo lectura
-  const CRITERIOS = { A: 'Cremalleras / cajas hidráulicas', B: 'EPS', C: 'Refabrica recambios' };
+  const CRITERIOS_ABC = { A: 'Cremalleras / cajas hidráulicas', B: 'EPS', C: 'Refabrica recambios' };
   // Orden y nombre de los datos de preparación que vienen del Excel
   const CAMPOS_PREP = [['procedencia', 'Procedencia'], ['tamano', 'Tamaño según documentos'], ['observacion', 'Observación'], ['linea', 'Línea'], ['tipoEmpresa', 'Tipo'], ['grupo', 'Grupo de producto'], ['actividad', 'Actividad'], ['familia', 'Familia productos coches chinos'],
     ['filtros', 'Filtros que pasa (PT Com)'], ['criterio', 'Criterio'], ['prioridadOscar', 'Prioridad ruta Óscar'], ['motivo', 'Motivo de la priorización'],
@@ -789,7 +825,7 @@
   function prepHTML(e) {
     const p = e.prep;
     if (!p) return '';
-    const filas = CAMPOS_PREP.map(([k, label]) => [label, k === 'criterio' ? String(p[k] || '').replace(/\b([ABC])\b/g, (m, l) => l + ' (' + CRITERIOS[l] + ')') : p[k]])
+    const filas = CAMPOS_PREP.map(([k, label]) => [label, k === 'criterio' ? String(p[k] || '').replace(/\b([ABC])\b/g, (m, l) => l + ' (' + CRITERIOS_ABC[l] + ')') : p[k]])
       .filter(([, v]) => v && v !== '—');
     const titulo = tipoDe(e) === 'seleccionada' ? '📋 Documento de empresas seleccionadas' : '📋 Preparación (Excel de expositores)';
     return filas.length ? `<div class="prep"><div class="prep-tit">${titulo}</div>
@@ -813,10 +849,14 @@
     const m = abrirModal(`
       <form class="editor ficha" id="form-ficha">
         <div class="editor-head"><h2>${e ? esc(e.nombre || 'Ficha') : 'Nueva empresa'}</h2><button type="button" class="icon-btn" data-cerrar>✕</button></div>
+        ${e && tipo === 'feria' ? badgeIdent(e) : ''}
         <div class="campos">
           ${comunes.map(c => campoHTML(c, v)).join('')}
           ${propios.map(c => campoHTML(c, v)).join('')}
           ${tipo === 'feria' ? `<div class="campo"><span class="lbl">Categoría</span>${opciones('categoria', NIVELES[nivel(v)].k, NIVELES.map(n => [n.k, n.txt]))}</div>` : ''}
+          ${tipo === 'feria' ? `<label class="campo"><span class="lbl">Identificación (principales)</span>
+            <select name="ident" class="input">${[['', 'Automática' + (e && !e.ident && criterio(e) >= 0 ? ': ' + identTxt(e) : ' (según grupo de producto)')], ...IDENTS.map(c => [c.k, c.k + ' · ' + c.txt]), ['no', 'Ninguna']]
+              .map(([k, t]) => `<option value="${k}" ${(v.ident || '') === k ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></label>` : ''}
           ${contacto.map(c => campoHTML(c, v)).join('')}
           <label class="campo check-campo"><input type="checkbox" name="visitado" ${v.visitado ? 'checked' : ''}><span>Ya visitada</span></label>
           ${tipo === 'seleccionada' ? `<label class="campo check-campo"><input type="checkbox" name="prioritaria" ${v.prioritaria ? 'checked' : ''}><span>⭐ Prioritaria</span></label>` : ''}
@@ -847,7 +887,7 @@
       const datos = { tipo };
       [...comunes, ...propios, ...contacto].forEach(c => { datos[c.k] = String(fd.get(c.k) || '').trim(); });
       if (!datos.nombre) { toast('Pon al menos el nombre de la empresa'); return; }
-      if (tipo === 'feria') datos.categoria = fd.get('categoria') || 'principal';
+      if (tipo === 'feria') { datos.categoria = fd.get('categoria') || 'principal'; datos.ident = String(fd.get('ident') || ''); }
       datos.visitado = fd.get('visitado') === 'on';
       datos.visitaHecha = fd.get('visitaHecha') === 'on';
       if (tipo !== 'visita') {
@@ -1082,7 +1122,7 @@
       await cargarScript('word-export.js', () => !!window.generarInformeWord);
     } catch (e) { toast(e.message); return; }
     const filtro = e => todas || tieneContenido(e);
-    const feriaOrden = calcularRuta().map(({ orden, e }) => Object.assign({ orden }, e)).filter(filtro);
+    const feriaOrden = calcularRuta().map(({ orden, e }) => Object.assign({ orden, _ident: identTxt(e) }, e)).filter(filtro);
     const vis = visitas().filter(filtro).sort((a, b) => nat((a.fecha || '9') + (a.hora || ''), (b.fecha || '9') + (b.hora || '')) || nat(a.nombre, b.nombre));
     let ultimo = 0;
     try {
@@ -1168,7 +1208,7 @@
         Origen: tipoDe(e) === 'feria' ? 'Feria (' + NIVELES[nivel(e)].txt.replace('⭐ ', '') + ')' : (tipoDe(e) === 'seleccionada' ? 'Seleccionada' : 'Otra'), 'Visita hecha': e.visitaHecha ? 'Sí' : 'No' }, notasDe(e)))), 'A visitar');
     X.utils.book_append_sheet(wb, hoja(['Orden', 'Empresa', 'Nombre chino', 'Pabellón', 'Stand', 'Categoría', 'Línea', 'Visita', 'Visitado', 'Contacto', 'Rol', 'Web', ...colsU],
       calcularRuta().map(({ orden, e }) => Object.assign({ Orden: orden, Empresa: e.nombre, 'Nombre chino': e.nombreZh, 'Pabellón': e.pabellon, Stand: e.stand,
-        'Categoría': NIVELES[nivel(e)].txt.replace('⭐ ', ''), 'Línea': (e.prep || {}).linea || '', Visita: e.visita ? 'Sí' : '', Visitado: e.visitado ? 'Sí' : 'No', Contacto: e.contacto, Rol: e.rol, Web: e.web }, notasDe(e)))), 'Feria');
+        'Categoría': NIVELES[nivel(e)].txt.replace('⭐ ', ''), 'Identificación': identTxt(e), 'Línea': (e.prep || {}).linea || '', Visita: e.visita ? 'Sí' : '', Visitado: e.visitado ? 'Sí' : 'No', Contacto: e.contacto, Rol: e.rol, Web: e.web }, notasDe(e)))), 'Feria');
     X.utils.book_append_sheet(wb, hoja(['Empresa', 'Nombre chino', 'Ciudad', 'Fecha', 'Hora', 'Dirección', 'Contacto', 'Rol', 'Web', 'Visitado', ...colsU],
       visitas().map(e => Object.assign({ Empresa: e.nombre, 'Nombre chino': e.nombreZh, Ciudad: e.ciudad, Fecha: e.fecha, Hora: e.hora, 'Dirección': e.direccion,
         Contacto: e.contacto, Rol: e.rol, Web: e.web, Visitado: e.visitado ? 'Sí' : 'No' }, notasDe(e)))), 'Visitas');

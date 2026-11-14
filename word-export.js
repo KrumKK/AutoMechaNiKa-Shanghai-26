@@ -214,7 +214,7 @@
       const titulo = (esFeria && e.orden ? e.orden + '. ' : '') + (e.nombre || 'Empresa');
       const out = [new Paragraph({ heading: HeadingLevel.HEADING_2, children: [run(titulo)] })];
       if (e.nombreZh) out.push(new Paragraph({ spacing: { after: 100 }, children: [run(e.nombreZh, { size: 22, color: GRIS, font: { eastAsia: 'Microsoft YaHei' } })] }));
-      const estado = [esFeria ? 'Prioridad ' + nivelTxt(e).toLowerCase() : (esSelec ? (e.prioritaria ? 'Seleccionada · prioritaria' : 'Seleccionada') : 'Visita'), e.visitado ? 'Visitada' : 'Pendiente de visitar'].join(' · ');
+      const estado = [esFeria ? 'Prioridad ' + nivelTxt(e).toLowerCase() + (e._ident ? ' · ' + e._ident : '') : (esSelec ? (e.prioritaria ? 'Seleccionada · prioritaria' : 'Seleccionada') : 'Visita'), e.visitado ? 'Visitada' : 'Pendiente de visitar'].join(' · ');
       const datos = tablaDatos([
         esSelec ? ['En la feria', e._feria ? (e.enFeriaDuda ? 'Posiblemente: ' : '') + 'Pabellón ' + (e._feria.pabellon || '¿?') + ' · Stand ' + (e._feria.stand || '¿?') : ''] : esFeria ? ['Pabellón / stand', (e.pabellon ? 'Pabellón ' + e.pabellon : 'Sin pabellón') + (e.stand ? ' · Stand ' + e.stand : '')] : ['Cuándo', [fechaLarga(e.fecha), e.hora].filter(Boolean).join(' · ')],
         ['Estado', estado],
