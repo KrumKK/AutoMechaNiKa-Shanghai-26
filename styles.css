@@ -372,6 +372,7 @@ a.menu-item { text-decoration: none; color: inherit; }
 .ident.p2 { background: #D6EEF8; color: #2D4A5E; border-color: #B5DCEE; }
 .ident.p3 { background: #FDE6D8; color: #8A4B22; border-color: #F5CBB0; }
 .ident.p4 { background: #FCE4F1; color: #A0005E; border-color: #F4C2DE; }
+.ident.p5 { background: #D9F2EE; color: #1F6B63; border-color: #B3E3DA; }
 .editor-head + .ident { margin: -4px 0 10px; }
 .subgrupo { margin: 14px 4px 6px; font-size: 13px; font-weight: 700; color: var(--soft); text-transform: uppercase; letter-spacing: .04em; }
-.subgrupo.p1 { color: #5B4596; } .subgrupo.p2 { color: #2D6A8A; } .subgrupo.p3 { color: #8A4B22; } .subgrupo.p4 { color: #A0005E; }
+.subgrupo.p1 { color: #5B4596; } .subgrupo.p2 { color: #2D6A8A; } .subgrupo.p3 { color: #8A4B22; } .subgrupo.p4 { color: #A0005E; } .subgrupo.p5 { color: #1F6B63; }

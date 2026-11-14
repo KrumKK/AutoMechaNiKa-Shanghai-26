@@ -81,7 +81,8 @@
     { k: 'P1', txt: 'Dirección refabricación real', re: /^direcci[oó]n\s*·\s*reman/i },
     { k: 'P2', txt: 'Dirección pieza nueva', re: /^direcci[oó]n\s*·\s*fabricante/i },
     { k: 'P3', txt: 'Reman fuera de dirección', re: /^reman fuera de direcci/i },
-    { k: 'P4', txt: 'Reman, cascos y contactos', re: /^reman,?\s*cascos/i }
+    { k: 'P4', txt: 'Reman, cascos y contactos', re: /^reman,?\s*cascos/i },
+    { k: 'P5', txt: 'Casquero proveedor de cascos', re: /^casquero/i }
   ];
   const criterio = e => {
     if (!e || tipoDe(e) !== 'feria' || e.ident === 'no') return -1;
