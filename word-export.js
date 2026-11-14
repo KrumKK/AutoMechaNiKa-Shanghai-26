@@ -13,7 +13,7 @@
   const CRITERIOS = { A: 'cremalleras / cajas hidráulicas', B: 'EPS', C: 'refabrica recambios' };
   const nivelTxt = e => { const c = String(e.categoria || '').toLowerCase();
     return (c === 'alta' || c === 'secundaria-alta') ? 'Secundaria alta' : ((c === 'baja' || c === 'secundario' || c === 'secundaria-baja') ? 'Secundaria baja' : 'Principal'); };
-  const CAMPOS_PREP = [['linea', 'Línea'], ['tipoEmpresa', 'Tipo'], ['grupo', 'Grupo de producto'], ['actividad', 'Actividad'], ['familia', 'Familia productos'],
+  const CAMPOS_PREP = [['procedencia', 'Procedencia'], ['tamano', 'Tamaño según documentos'], ['observacion', 'Observación'], ['linea', 'Línea'], ['tipoEmpresa', 'Tipo'], ['grupo', 'Grupo de producto'], ['actividad', 'Actividad'], ['familia', 'Familia productos'],
     ['filtros', 'Filtros PT Com'], ['criterio', 'Criterio'], ['prioridadOscar', 'Prioridad ruta Óscar'], ['motivo', 'Motivo de la priorización'],
     ['evidencia', 'Evidencia'], ['apareceEn', 'Aparece en'], ['aviso', 'Aviso'], ['observaciones', 'Observaciones'], ['origen', 'Origen']];
 
@@ -45,6 +45,7 @@
     const { Document, Packer, Paragraph, TextRun, ImageRun, Table, TableRow, TableCell, WidthType, ShadingType,
       BorderStyle, AlignmentType, HeadingLevel, Header, Footer, PageNumber, PageBreak, TableLayoutType } = D;
     const { CFG, usuario, viaje, feria, visitas, incluirFotos, leerFoto, progreso } = o;
+    const selec = o.seleccionadas || [];
     const U = CFG.USUARIOS;
     const colorU = u => PASTEL['u' + Math.max(0, U.indexOf(u))];
 
@@ -193,15 +194,15 @@
     if (nRuta.length) viajeSec.push(new Paragraph({ heading: HeadingLevel.HEADING_2, children: [run('Notas de la ruta')] }), ...nRuta);
 
     // ---------- Fichas de empresa ----------
-    async function ficha(e, i, total, esFeria) {
+    async function ficha(e, i, total, esFeria, esSelec) {
       progreso && progreso(i, total, e.nombre);
       const p = e.prep || {};
       const titulo = (esFeria && e.orden ? e.orden + '. ' : '') + (e.nombre || 'Empresa');
       const out = [new Paragraph({ heading: HeadingLevel.HEADING_2, children: [run(titulo)] })];
       if (e.nombreZh) out.push(new Paragraph({ spacing: { after: 100 }, children: [run(e.nombreZh, { size: 22, color: GRIS, font: { eastAsia: 'Microsoft YaHei' } })] }));
-      const estado = [esFeria ? 'Prioridad ' + nivelTxt(e).toLowerCase() : 'Visita', e.visitado ? 'Visitada' : 'Pendiente de visitar'].join(' · ');
+      const estado = [esFeria ? 'Prioridad ' + nivelTxt(e).toLowerCase() : (esSelec ? (e.prioritaria ? 'Seleccionada · prioritaria' : 'Seleccionada') : 'Visita'), e.visitado ? 'Visitada' : 'Pendiente de visitar'].join(' · ');
       const datos = tablaDatos([
-        esFeria ? ['Pabellón / stand', (e.pabellon ? 'Pabellón ' + e.pabellon : 'Sin pabellón') + (e.stand ? ' · Stand ' + e.stand : '')] : ['Cuándo', [fechaLarga(e.fecha), e.hora].filter(Boolean).join(' · ')],
+        esSelec ? ['En la feria', e._feria ? (e.enFeriaDuda ? 'Posiblemente: ' : '') + 'Pabellón ' + (e._feria.pabellon || '¿?') + ' · Stand ' + (e._feria.stand || '¿?') : ''] : esFeria ? ['Pabellón / stand', (e.pabellon ? 'Pabellón ' + e.pabellon : 'Sin pabellón') + (e.stand ? ' · Stand ' + e.stand : '')] : ['Cuándo', [fechaLarga(e.fecha), e.hora].filter(Boolean).join(' · ')],
         ['Estado', estado],
         ['Ubicación', [e.direccion, e.ciudad, e.pais].filter(Boolean).join(', ')],
         ['Contacto', [e.contacto, e.rol].filter(Boolean).join(' · ')],
@@ -211,7 +212,7 @@
       const prepFilas = CAMPOS_PREP.map(([k, label]) => [label, k === 'criterio' ? String(p[k] || '').replace(/\b([ABC])\b/g, (m, l) => l + ' (' + CRITERIOS[l] + ')') : p[k]])
         .filter(([, v]) => v && v !== '—');
       if (prepFilas.length) {
-        out.push(recuadro('Preparación (Excel de expositores)', prepFilas.map(([k, v]) =>
+        out.push(recuadro(esSelec ? 'Documento de empresas seleccionadas' : 'Preparación (Excel de expositores)', prepFilas.map(([k, v]) =>
           new Paragraph({ spacing: { after: 60 }, children: [run(k + ': ', { bold: true, color: '8A6A1F', size: 19 }), run(v, { size: 19 })] })), PASTEL.prep), vacio(100));
       }
       const notas = await notasUsuarios(e, 'texto');
@@ -221,7 +222,7 @@
       return out;
     }
 
-    const total = ff.length + vv.length;
+    const total = ff.length + vv.length + selec.length;
     let n = 0;
     const feriaSec = [];
     if (ff.length) {
@@ -233,6 +234,12 @@
         if (g !== pab) { pab = g; feriaSec.push(new Paragraph({ heading: HeadingLevel.HEADING_3, children: [run(g.toUpperCase())] })); }
         feriaSec.push(...(await ficha(e, ++n, total, true)));
       }
+    }
+    const selecSec = [];
+    if (selec.length) {
+      selecSec.push(new Paragraph({ children: [new PageBreak()] }), new Paragraph({ heading: HeadingLevel.HEADING_1, children: [run('Empresas seleccionadas')] }),
+        new Paragraph({ spacing: { after: 200 }, children: [run('Candidatos seleccionados de entre los propuestos por las 3 oficinas del ICEX, Mr Xie e investigación propia.', { color: GRIS_SUAVE, size: 19 })] }));
+      for (const e of selec) selecSec.push(...(await ficha(e, ++n, total, false, true)));
     }
     const visitasSec = [];
     if (vv.length) {
@@ -265,7 +272,7 @@
             new TextRun({ children: [PageNumber.CURRENT], size: 16, color: GRIS_SUAVE })] })] }),
           first: new Footer({ children: [new Paragraph({ children: [] })] })
         },
-        children: [...portada, ...viajeSec, ...feriaSec, ...visitasSec]
+        children: [...portada, ...viajeSec, ...feriaSec, ...selecSec, ...visitasSec]
       }]
     });
     const blob = await Packer.toBlob(doc);

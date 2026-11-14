@@ -328,3 +328,10 @@ a.menu-item { text-decoration: none; color: inherit; }
 .h-dir { font-size: 14px; }
 .zh-grande { font-size: 17px; color: var(--text); background: var(--crema); border-radius: 10px; padding: 8px 10px; user-select: all; -webkit-user-select: all; }
 .h-botones { margin: 4px 0 0; }
+/* Seleccionadas */
+.selec { padding: 0; overflow: hidden; }
+.selec.imp { border-left-color: var(--accent); }
+.selec-body { display: grid; gap: 3px; width: 100%; padding: 14px 16px 10px; }
+.en-feria { display: block; background: var(--azul); color: #2D4A5E; font-size: 13px; font-weight: 600; padding: 8px 16px; cursor: pointer; }
+.ficha .en-feria { border-radius: 10px; margin-bottom: 12px; }
+.nota-txt { font-style: normal; }
