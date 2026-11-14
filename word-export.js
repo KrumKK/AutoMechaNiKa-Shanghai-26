@@ -11,6 +11,11 @@
   const PASTEL = { u0: 'EAF3FC', u1: 'F2ECFC', prep: 'FFF7E3', info: 'F7F4FB', cab: 'FCE4F1' };
   const ANCHO = 9638; // A4 con márgenes de 2 cm, en DXA
   const CRITERIOS = { A: 'cremalleras / cajas hidráulicas', B: 'EPS', C: 'refabrica recambios' };
+  const nivelTxt = e => { const c = String(e.categoria || '').toLowerCase();
+    return (c === 'alta' || c === 'secundaria-alta') ? 'Secundaria alta' : ((c === 'baja' || c === 'secundario' || c === 'secundaria-baja') ? 'Secundaria baja' : 'Principal'); };
+  const CAMPOS_PREP = [['linea', 'Línea'], ['tipoEmpresa', 'Tipo'], ['grupo', 'Grupo de producto'], ['actividad', 'Actividad'], ['familia', 'Familia productos'],
+    ['filtros', 'Filtros PT Com'], ['criterio', 'Criterio'], ['prioridadOscar', 'Prioridad ruta Óscar'], ['motivo', 'Motivo de la priorización'],
+    ['evidencia', 'Evidencia'], ['apareceEn', 'Aparece en'], ['aviso', 'Aviso'], ['observaciones', 'Observaciones'], ['origen', 'Origen']];
 
   function fechaLarga(iso) {
     if (!iso) return '';
@@ -147,9 +152,9 @@
       new Paragraph({ heading: HeadingLevel.TITLE, alignment: AlignmentType.CENTER, children: [run(CFG.TITULO || 'Viaje China')] }),
       new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 120 }, children: [run(CFG.EVENTO + ' · 2 al 5 de diciembre de 2026', { size: 26, color: GRIS })] }),
       new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 900 }, children: [run('Informe de feria y visitas a empresas', { size: 24, color: GRIS_SUAVE })] }),
-      tablaListado(['Empresas en la feria', 'Importantes', 'Visitadas', 'Visitas a empresas', 'Fotos'],
+      tablaListado(['Empresas en la feria', 'Principales', 'Visitadas', 'Visitas a empresas', 'Fotos'],
         [1928, 1927, 1927, 1928, 1928],
-        [[String(ff.length), String(cuenta(ff, e => e.categoria !== 'secundario')), String(cuenta([...ff, ...vv], e => e.visitado)), String(vv.length), String(nFotos)]]),
+        [[String(ff.length), String(cuenta(ff, e => nivelTxt(e) === 'Principal')), String(cuenta([...ff, ...vv], e => e.visitado)), String(vv.length), String(nFotos)]]),
       new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 600 }, children: [run('Generado el ' + hoyTxt() + ' por ' + usuario + ' desde la app', { size: 18, color: GRIS_SUAVE })] }),
       new Paragraph({ alignment: AlignmentType.CENTER, children: [run('Equipo: ' + U.join(' y '), { size: 18, color: GRIS_SUAVE })] })
     ];
@@ -194,7 +199,7 @@
       const titulo = (esFeria && e.orden ? e.orden + '. ' : '') + (e.nombre || 'Empresa');
       const out = [new Paragraph({ heading: HeadingLevel.HEADING_2, children: [run(titulo)] })];
       if (e.nombreZh) out.push(new Paragraph({ spacing: { after: 100 }, children: [run(e.nombreZh, { size: 22, color: GRIS, font: { eastAsia: 'Microsoft YaHei' } })] }));
-      const estado = [esFeria ? (e.categoria === 'secundario' ? 'Menos importante' : 'Importante') : 'Visita', e.visitado ? 'Visitada' : 'Pendiente de visitar'].join(' · ');
+      const estado = [esFeria ? 'Prioridad ' + nivelTxt(e).toLowerCase() : 'Visita', e.visitado ? 'Visitada' : 'Pendiente de visitar'].join(' · ');
       const datos = tablaDatos([
         esFeria ? ['Pabellón / stand', (e.pabellon ? 'Pabellón ' + e.pabellon : 'Sin pabellón') + (e.stand ? ' · Stand ' + e.stand : '')] : ['Cuándo', [fechaLarga(e.fecha), e.hora].filter(Boolean).join(' · ')],
         ['Estado', estado],
@@ -203,11 +208,10 @@
         ['Email', e.email], ['Teléfono', e.telefono], ['Web / WeChat', e.web]
       ]);
       if (datos) out.push(datos, vacio(80));
-      const crit = (p.criterio || '').replace(/\b([ABC])\b/g, (m, l) => l + ' (' + CRITERIOS[l] + ')');
-      const prepFilas = [['Criterio', crit], ['Evidencia', p.evidencia], ['Aparece en', p.apareceEn], ['Prioridad ruta Óscar', p.prioridadOscar], ['Observaciones', p.observaciones]]
+      const prepFilas = CAMPOS_PREP.map(([k, label]) => [label, k === 'criterio' ? String(p[k] || '').replace(/\b([ABC])\b/g, (m, l) => l + ' (' + CRITERIOS[l] + ')') : p[k]])
         .filter(([, v]) => v && v !== '—');
       if (prepFilas.length) {
-        out.push(recuadro('Preparación (ficheros KKK y OH)', prepFilas.map(([k, v]) =>
+        out.push(recuadro('Preparación (Excel de expositores)', prepFilas.map(([k, v]) =>
           new Paragraph({ spacing: { after: 60 }, children: [run(k + ': ', { bold: true, color: '8A6A1F', size: 19 }), run(v, { size: 19 })] })), PASTEL.prep), vacio(100));
       }
       const notas = await notasUsuarios(e, 'texto');

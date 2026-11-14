@@ -56,7 +56,21 @@
   };
 
   const bloque = (doc, u) => ((doc && doc.usuarios) || {})[u || state.user] || {};
-  const esImportante = e => e.categoria !== 'secundario';
+  // Prioridad de visita en tres niveles (compatible con los valores antiguos importante/secundario)
+  const NIVELES = [
+    { k: 'principal', txt: '⭐ Principal', plural: '⭐ Principales', badge: 'rosa' },
+    { k: 'alta', txt: 'Secundaria alta', plural: 'Secundaria alta', badge: 'lila' },
+    { k: 'baja', txt: 'Secundaria baja', plural: 'Secundaria baja', badge: 'crema' }
+  ];
+  const nivel = e => {
+    const c = String((e && e.categoria) || '').toLowerCase();
+    if (c === 'alta' || c === 'secundaria-alta') return 1;
+    if (c === 'baja' || c === 'secundario' || c === 'secundaria-baja') return 2;
+    return 0;
+  };
+  const esImportante = e => nivel(e) === 0;
+  const badgeNivel = e => `<span class="badge ${NIVELES[nivel(e)].badge}">${NIVELES[nivel(e)].txt}</span>`;
+  const badgeLinea = e => (e.prep && e.prep.linea) ? `<span class="badge azul">${esc(e.prep.linea)}</span>` : '';
   const feria = () => state.empresas.filter(e => e.tipo !== 'visita');
   const visitas = () => state.empresas.filter(e => e.tipo === 'visita');
   const empresaPorId = id => state.empresas.find(e => e.id === id);
@@ -352,7 +366,8 @@
         ${e.contacto ? `<span class="muted small">👤 ${esc(e.contacto)}${e.rol ? ' · ' + esc(e.rol) : ''}</span>` : ''}
         ${e.ciudad && e.tipo !== 'visita' ? `<span class="muted small">📍 ${esc(e.ciudad)}${e.pais && e.pais !== 'China' ? ', ' + esc(e.pais) : ''}</span>` : ''}
         ${resumen ? `<span class="extracto">${esc(resumen.slice(0, 140))}${resumen.length > 140 ? '…' : ''}</span>` : ''}
-        <span class="tags">${e.tipo !== 'visita' ? `<span class="badge ${esImportante(e) ? 'rosa' : 'crema'}">${esImportante(e) ? '⭐ Importante' : 'Menos importante'}</span>` : '<span class="badge lila">🏢 Visita</span>'}${e.prep && e.prep.criterio ? `<span class="badge azul">Criterio ${esc(e.prep.criterio)}</span>` : ''}${marcasEmpresa(e)}</span>
+        ${e.prep && e.prep.grupo ? `<span class="muted small">🔧 ${esc(e.prep.grupo)}</span>` : ''}
+        <span class="tags">${e.tipo !== 'visita' ? badgeNivel(e) : '<span class="badge lila">🏢 Visita</span>'}${badgeLinea(e)}${marcasEmpresa(e)}</span>
       </button>`;
   }
 
@@ -371,7 +386,8 @@
         ${lista.length ? lista.map(tarjetaEmpresa).join('') : '<p class="vacio">Aún no hay visitas. Pásame la lista y las cargo, o añádelas aquí.</p>'}`;
     } else {
       const lista = feria().sort((a, b) => nat(a.nombre, b.nombre));
-      const imp = lista.filter(esImportante), sec = lista.filter(e => !esImportante(e));
+      const imp = lista.filter(esImportante);
+      const porNivel = [0, 1, 2].map(n => lista.filter(e => nivel(e) === n));
       const grupo = (titulo, items, abierto) => items.length ? `
         <details class="grupo-det" ${abierto ? 'open' : ''}>
           <summary>${titulo} (${items.length})</summary>
@@ -381,13 +397,13 @@
         <div class="card cabecera">
           <span class="badge rosa">FERIA · SHANGHÁI</span>
           <h2 class="titulo-serif">Automechanika Shanghai</h2>
-          <p class="muted">${lista.length} empresas · ${imp.length} importantes · ${lista.filter(e => e.visitado).length} visitadas</p>
+          <p class="muted">${lista.length} empresas · ${imp.length} principales · ${lista.filter(e => e.visitado).length} visitadas</p>
         </div>
         <div class="acciones-fila">
           <button class="btn primary" data-nuevo="feria">+ Añadir empresa</button>
           <button class="btn soft" data-tab="ruta">🗺️ Ver ruta</button>
         </div>
-        ${lista.length ? grupo('⭐ Importantes', imp, true) + grupo('Menos importantes', sec, true) : '<p class="vacio">Aún no hay empresas de la feria. Pásame la lista y las cargo, o impórtalas desde Excel con el menú ⋯.</p>'}`;
+        ${lista.length ? porNivel.map((l, n) => grupo(NIVELES[n].plural, l, n < 2)).join('') : '<p class="vacio">Aún no hay empresas de la feria. Impórtalas desde Excel con el menú ⋯.</p>'}`;
     }
     return `
       <section>
@@ -400,16 +416,17 @@
   // ═══════════ Ruta optimizada de stands ═══════════
   function calcularRuta() {
     const orden = CFG.ORDEN_PABELLONES || [];
-    const idx = p => { const i = orden.indexOf(String(p || '').trim()); return i < 0 ? orden.length : i; };
+    const primerPab = p => String(p || '').split(/\s+y\s+|,|\//)[0].trim();
+    const idx = p => { const i = orden.indexOf(primerPab(p)); return i < 0 ? orden.length + (primerPab(p) ? 0 : 1) : i; };
     const ordenados = feria().sort((a, b) => (idx(a.pabellon) - idx(b.pabellon)) || nat(a.pabellon, b.pabellon) || nat(a.stand, b.stand) || nat(a.nombre, b.nombre));
-    const ruta = state.modoRuta === 'importantes' ? [...ordenados.filter(esImportante), ...ordenados.filter(e => !esImportante(e))] : ordenados;
+    const ruta = state.modoRuta === 'importantes' ? [0, 1, 2].flatMap(n => ordenados.filter(e => nivel(e) === n)) : ordenados;
     return ruta.map((e, i) => ({ orden: i + 1, e }));
   }
 
   function vistaRuta() {
     const ruta = calcularRuta();
     const total = ruta.length, imp = ruta.filter(r => esImportante(r.e)).length, hechos = ruta.filter(r => r.e.visitado).length;
-    const visibles = ruta.filter(r => state.filtro === 'importantes' ? esImportante(r.e) : state.filtro === 'pendientes' ? !r.e.visitado : true);
+    const visibles = ruta.filter(r => state.filtro === 'importantes' ? esImportante(r.e) : state.filtro === 'altas' ? nivel(r.e) <= 1 : state.filtro === 'pendientes' ? !r.e.visitado : true);
     const seg = (campo, valor, txt) => `<button class="${state[campo] === valor ? 'on' : ''}" data-set="${campo}" data-val="${valor}">${txt}</button>`;
     let lista = '';
     if (!total) lista = '<p class="vacio">La ruta se crea sola con las empresas de la feria (Eventos → Automechanika Shanghai). Indica pabellón y stand de cada una.</p>';
@@ -417,7 +434,7 @@
     else {
       let grupoActual = null;
       lista = visibles.map(({ orden, e }) => {
-        const g = state.modoRuta === 'importantes' ? (esImportante(e) ? '⭐ Importantes' : 'Menos importantes') : 'Pabellón ' + (e.pabellon || 'sin indicar');
+        const g = state.modoRuta === 'importantes' ? NIVELES[nivel(e)].plural : 'Pabellón ' + (e.pabellon || 'sin indicar');
         const cab = g !== grupoActual ? `<h3 class="grupo">${esc(g)}</h3>` : '';
         grupoActual = g;
         return cab + `
@@ -426,7 +443,7 @@
             <button class="parada-body" data-ficha="${esc(e.id)}">
               <span class="emp-top"><span class="num">${orden}</span><b>${esc(e.nombre || 'Sin nombre')}</b></span>
               <span class="muted">Pab. ${esc(e.pabellon || '¿?')} · Stand ${esc(e.stand || '¿?')}</span>
-              <span class="tags"><span class="badge ${esImportante(e) ? 'rosa' : 'crema'}">${esImportante(e) ? '⭐ Importante' : 'Menos importante'}</span>${marcasEmpresa(e)}</span>
+              <span class="tags">${badgeNivel(e)}${badgeLinea(e)}${marcasEmpresa(e)}</span>
             </button>
           </div>`;
       }).join('');
@@ -435,11 +452,11 @@
       <section>
         <div class="sec-head"><h2>🗺️ Ruta por la feria</h2></div>
         <div class="card resumen-ruta">
-          <div class="cifras"><div><b>${total}</b><span>stands</span></div><div><b>${imp}</b><span>importantes</span></div><div><b>${hechos}</b><span>visitados</span></div></div>
+          <div class="cifras"><div><b>${total}</b><span>stands</span></div><div><b>${imp}</b><span>principales</span></div><div><b>${hechos}</b><span>visitados</span></div></div>
           <div class="barra"><span style="width:${total ? Math.round(hechos * 100 / total) : 0}%"></span></div>
         </div>
-        <div class="seg">${seg('modoRuta', 'pabellones', 'Por pabellones')}${seg('modoRuta', 'importantes', 'Importantes primero')}</div>
-        <div class="chips-filtro">${seg('filtro', 'todos', 'Todos')}${seg('filtro', 'importantes', 'Solo importantes')}${seg('filtro', 'pendientes', 'Pendientes')}</div>
+        <div class="seg">${seg('modoRuta', 'pabellones', 'Por pabellones')}${seg('modoRuta', 'importantes', 'Por prioridad')}</div>
+        <div class="chips-filtro">${seg('filtro', 'todos', 'Todos')}${seg('filtro', 'importantes', 'Principales')}${seg('filtro', 'altas', '+ Sec. alta')}${seg('filtro', 'pendientes', 'Pendientes')}</div>
         <p class="nota-info">ℹ️ El orden recorre los pabellones en secuencia para caminar lo mínimo. Confirma pabellón y stand en el plano oficial o en la app de visitante de la feria.</p>
         ${lista}
       </section>
@@ -458,7 +475,7 @@
         <div class="sec-head"><h2>📊 Resumen</h2><span class="btns-fila"><button class="btn soft" data-accion="word">📄 Word</button><button class="btn soft" data-accion="exportar">📤 Excel</button></span></div>
         <div class="kpis">
           ${tile(f.length, 'empresas en la feria', 'azul')}
-          ${tile(f.filter(esImportante).length, 'importantes', 'rosa')}
+          ${tile(f.filter(esImportante).length, 'principales', 'rosa')}
           ${tile(f.filter(e => e.visitado).length + ' / ' + f.length, 'stands visitados', 'menta')}
           ${tile(v.length, 'visitas a empresas', 'lila')}
           ${tile(fotos, 'fotos', 'crema')}
@@ -469,7 +486,7 @@
         <div class="sec-head"><h2>📝 Lo que hemos anotado</h2></div>
         ${conNotas.length ? conNotas.map(e => `
           <button class="card resumen-emp" data-ficha="${esc(e.id)}">
-            <span class="emp-top"><b>${esc(e.nombre)}</b><span class="badge ${e.tipo === 'visita' ? 'lila' : (esImportante(e) ? 'rosa' : 'crema')}">${e.tipo === 'visita' ? 'Visita' : 'Feria'}</span></span>
+            <span class="emp-top"><b>${esc(e.nombre)}</b><span class="badge ${e.tipo === 'visita' ? 'lila' : NIVELES[nivel(e)].badge}">${e.tipo === 'visita' ? 'Visita' : 'Feria'}</span></span>
             ${CFG.USUARIOS.map(u => {
               const b = bloque(e, u), n = (b.fotos || []).length, t = (b.texto || '').trim();
               if (!t && !n) return '';
@@ -641,20 +658,23 @@
   // ═══════════ Ficha de empresa (datos compartidos + bloque de cada usuario con texto y fotos) ═══════════
   // Datos de la preparación (Excel de empresas confirmadas): solo lectura
   const CRITERIOS = { A: 'Cremalleras / cajas hidráulicas', B: 'EPS', C: 'Refabrica recambios' };
+  // Orden y nombre de los datos de preparación que vienen del Excel
+  const CAMPOS_PREP = [['linea', 'Línea'], ['tipoEmpresa', 'Tipo'], ['grupo', 'Grupo de producto'], ['actividad', 'Actividad'], ['familia', 'Familia productos coches chinos'],
+    ['filtros', 'Filtros que pasa (PT Com)'], ['criterio', 'Criterio'], ['prioridadOscar', 'Prioridad ruta Óscar'], ['motivo', 'Motivo de la priorización'],
+    ['evidencia', 'Evidencia en la ficha'], ['apareceEn', 'Aparece en'], ['aviso', 'Aviso'], ['estadoUbicacion', 'Estado ubicación'], ['observaciones', 'Observaciones'], ['origen', 'Origen']];
   function prepHTML(e) {
     const p = e.prep;
     if (!p) return '';
-    const crit = (p.criterio || '').replace(/\b([ABC])\b/g, (m, l) => l + ' (' + CRITERIOS[l] + ')');
-    const filas = [['Criterio', crit], ['Evidencia en la ficha', p.evidencia], ['Aparece en', p.apareceEn], ['Prioridad ruta Óscar', p.prioridadOscar], ['Observaciones', p.observaciones]]
+    const filas = CAMPOS_PREP.map(([k, label]) => [label, k === 'criterio' ? String(p[k] || '').replace(/\b([ABC])\b/g, (m, l) => l + ' (' + CRITERIOS[l] + ')') : p[k]])
       .filter(([, v]) => v && v !== '—');
-    return filas.length ? `<div class="prep"><div class="prep-tit">📋 Preparación (fichero KKK y OH)</div>
+    return filas.length ? `<div class="prep"><div class="prep-tit">📋 Preparación (Excel de expositores)</div>
       ${filas.map(([k, v]) => `<div class="prep-fila"><span class="lbl">${esc(k)}</span><span>${esc(v)}</span></div>`).join('')}</div>` : '';
   }
 
   function abrirFicha(id, tipoNuevo) {
     const e = id ? empresaPorId(id) : null;
     const tipo = e ? (e.tipo === 'visita' ? 'visita' : 'feria') : tipoNuevo;
-    const v = e || { tipo, categoria: 'importante' };
+    const v = e || { tipo, categoria: 'principal' };
     const comunes = [{ k: 'nombre', label: 'Nombre de la empresa' }, { k: 'nombreZh', label: 'Nombre en chino (opcional)', ph: '上海…' }];
     const propios = tipo === 'feria'
       ? [{ k: 'pabellon', label: 'Pabellón', ph: '5.1', half: true }, { k: 'stand', label: 'Stand', ph: 'A23', half: true }]
@@ -670,7 +690,7 @@
         <div class="campos">
           ${comunes.map(c => campoHTML(c, v)).join('')}
           ${propios.map(c => campoHTML(c, v)).join('')}
-          ${tipo === 'feria' ? `<div class="campo"><span class="lbl">Categoría</span>${opciones('categoria', esImportante(v) ? 'importante' : 'secundario', [['importante', '⭐ Importante'], ['secundario', 'Menos importante']])}</div>` : ''}
+          ${tipo === 'feria' ? `<div class="campo"><span class="lbl">Categoría</span>${opciones('categoria', NIVELES[nivel(v)].k, NIVELES.map(n => [n.k, n.txt]))}</div>` : ''}
           ${contacto.map(c => campoHTML(c, v)).join('')}
           <label class="campo check-campo"><input type="checkbox" name="visitado" ${v.visitado ? 'checked' : ''}><span>Ya visitada</span></label>
         </div>
@@ -691,7 +711,7 @@
       const datos = { tipo };
       [...comunes, ...propios, ...contacto].forEach(c => { datos[c.k] = String(fd.get(c.k) || '').trim(); });
       if (!datos.nombre) { toast('Pon al menos el nombre de la empresa'); return; }
-      if (tipo === 'feria') datos.categoria = fd.get('categoria') || 'importante';
+      if (tipo === 'feria') datos.categoria = fd.get('categoria') || 'principal';
       datos.visitado = fd.get('visitado') === 'on';
       const nuevoId = e ? e.id : uid();
       if (!e) datos.id = nuevoId;
@@ -990,9 +1010,9 @@
       vuelos.map(v => { const ae = horasAeropuerto(v); return { Vuelo: v.numero, 'Aerolínea': v.aerolinea, Fecha: v.fecha, Hora: v.hora, Origen: v.origen, 'Terminal salida': v.terminalOrigen,
         'Fecha llegada': v.llegadaFecha, 'Hora llegada': v.llegadaHora, Destino: v.destino, 'Terminal llegada': v.terminalDestino, 'Estar en aeropuerto': ae ? diaTxt(ae.llegar) + ' ' + horaTxt(ae.llegar) : '' }; })), 'Vuelos');
     X.utils.book_append_sheet(wb, hoja(['Hotel', 'Ciudad', 'Entrada', 'Salida', 'Dirección', 'Dirección en chino', 'Teléfono'], state.viaje.hoteles.map(h => ({ Hotel: h.nombre, Ciudad: h.ciudad, Entrada: h.entrada, Salida: h.salida, 'Dirección': h.direccion, 'Dirección en chino': h.direccionZh, 'Teléfono': h.telefono }))), 'Hoteles');
-    X.utils.book_append_sheet(wb, hoja(['Orden', 'Empresa', 'Nombre chino', 'Pabellón', 'Stand', 'Categoría', 'Visitado', 'Contacto', 'Rol', 'Web', ...colsU],
+    X.utils.book_append_sheet(wb, hoja(['Orden', 'Empresa', 'Nombre chino', 'Pabellón', 'Stand', 'Categoría', 'Línea', 'Visitado', 'Contacto', 'Rol', 'Web', ...colsU],
       calcularRuta().map(({ orden, e }) => Object.assign({ Orden: orden, Empresa: e.nombre, 'Nombre chino': e.nombreZh, 'Pabellón': e.pabellon, Stand: e.stand,
-        'Categoría': esImportante(e) ? 'Importante' : 'Menos importante', Visitado: e.visitado ? 'Sí' : 'No', Contacto: e.contacto, Rol: e.rol, Web: e.web }, notasDe(e)))), 'Feria');
+        'Categoría': NIVELES[nivel(e)].txt.replace('⭐ ', ''), 'Línea': (e.prep || {}).linea || '', Visitado: e.visitado ? 'Sí' : 'No', Contacto: e.contacto, Rol: e.rol, Web: e.web }, notasDe(e)))), 'Feria');
     X.utils.book_append_sheet(wb, hoja(['Empresa', 'Nombre chino', 'Ciudad', 'Fecha', 'Hora', 'Dirección', 'Contacto', 'Rol', 'Web', 'Visitado', ...colsU],
       visitas().map(e => Object.assign({ Empresa: e.nombre, 'Nombre chino': e.nombreZh, Ciudad: e.ciudad, Fecha: e.fecha, Hora: e.hora, 'Dirección': e.direccion,
         Contacto: e.contacto, Rol: e.rol, Web: e.web, Visitado: e.visitado ? 'Sí' : 'No' }, notasDe(e)))), 'Visitas');
@@ -1041,12 +1061,25 @@
   }
 
   const MAPA_EMPRESA = {
-    nombreZh: ['nombre chino', 'nombre en chino', 'chino', '中文'], nombre: ['empresa', 'expositor', 'compania', 'company', 'nombre'],
-    pabellon: ['pabellon', 'hall', 'nave'], stand: ['stand', 'booth'], prioridadOscar: ['prioridad ruta'], categoria: ['categoria', 'prioridad', 'importancia'],
-    criterio: ['criterio'], evidencia: ['evidencia'], apareceEn: ['aparece en'], observaciones: ['observaciones', 'comentarios'],
-    pais: ['pais'], ciudad: ['ciudad'], fecha: ['fecha', 'dia'], hora: ['hora'], direccion: ['direccion'], contacto: ['contacto', 'persona'], rol: ['rol', 'cargo'],
+    numero: ['nº', 'n°'], nombreZh: ['nombre chino', 'nombre en chino', 'chino', '中文'], nombre: ['empresa', 'expositor', 'compania', 'company', 'nombre'],
+    linea: ['linea'], pabellon: ['pabellon', 'hall', 'nave'], stand: ['stand', 'booth'], estadoUbicacion: ['estado ubicacion'], aviso: ['aviso'],
+    prioridadOscar: ['prioridad ruta'], categoria: ['prioridad visita', 'categoria', 'prioridad', 'importancia'],
+    filtros: ['filtros'], familia: ['familia'], actividad: ['actividad'], criterio: ['criterio'], evidencia: ['evidencia'], apareceEn: ['aparece en'],
+    observaciones: ['observaciones', 'comentarios'], origen: ['origen'], grupo: ['grupo de producto', 'grupo'], tipoEmpresa: ['tipo (reman', 'tipo de empresa'],
+    motivo: ['motivo'], pais: ['pais'], ciudad: ['ciudad'], fecha: ['fecha', 'dia'], hora: ['hora'], direccion: ['direccion'], contacto: ['contacto', 'persona'], rol: ['rol', 'cargo'],
     email: ['email', 'correo', 'e-mail'], telefono: ['telefono', 'tel'], web: ['web', 'wechat'], visitado: ['visitado'], tipo: ['tipo']
   };
+  const CAMPOS_PREP_IMPORT = ['numero', 'linea', 'tipoEmpresa', 'grupo', 'actividad', 'familia', 'filtros', 'criterio', 'prioridadOscar', 'motivo', 'evidencia', 'apareceEn', 'aviso', 'estadoUbicacion', 'observaciones', 'origen'];
+  // Valores de relleno del Excel que significan "sin dato"
+  const limpio = v => { const t = txt(v); return /^(no (localizad|indicad|encontrad)|—|-|tba|sin nombre|pendiente$|no city)/i.test(t) ? '' : t; };
+  // Prioridad del Excel a los tres niveles de la app
+  function nivelDe(v) {
+    const n = norm(v);
+    if (!n) return '';
+    if (n.startsWith('secundaria alta') || n === 'media' || n === '2') return 'alta';
+    if (n.startsWith('secundaria') || n.startsWith('sin prioridad') || n.startsWith('menos') || n.startsWith('secundario') || n === 'baja' || n === '3' || n === 'c') return 'baja';
+    return 'principal';
+  }
 
   async function importarExcel(file) {
     try { await cargarXLSX(); } catch (e) { toast(e.message); return; }
@@ -1073,16 +1106,16 @@
       const t = norm(r.tipo);
       const tipo = tipoHoja || (t.startsWith('visit') ? 'visita' : t ? 'feria' : (txt(r.pabellon) || txt(r.stand) ? 'feria' : (txt(r.ciudad) ? 'visita' : 'feria')));
       const cat = norm(r.categoria);
-      const d = { tipo, nombre: txt(r.nombre), nombreZh: txt(r.nombreZh), contacto: txt(r.contacto), rol: txt(r.rol), web: txt(r.web),
-        email: txt(r.email), telefono: txt(r.telefono), pais: txt(r.pais), ciudad: txt(r.ciudad) };
-      const prep = { criterio: txt(r.criterio), evidencia: txt(r.evidencia), apareceEn: txt(r.apareceEn), prioridadOscar: txt(r.prioridadOscar), observaciones: txt(r.observaciones) };
-      if (Object.values(prep).some(Boolean)) d.prep = prep;
+      const d = { tipo, nombre: txt(r.nombre), nombreZh: limpio(r.nombreZh), contacto: limpio(r.contacto), rol: limpio(r.rol), web: limpio(r.web),
+        email: limpio(r.email), telefono: limpio(r.telefono), pais: limpio(r.pais), ciudad: limpio(r.ciudad) };
+      const prep = {};
+      CAMPOS_PREP_IMPORT.forEach(k => { if (r[k] !== undefined && txt(r[k])) prep[k] = txt(r[k]); });
+      if (Object.keys(prep).length) d.prep = prep;
       if (tipo === 'feria') {
-        d.pabellon = txt(r.pabellon); d.stand = txt(r.stand);
-        // Sin columna de categoría: importante si el criterio es A (cremalleras/hidráulica) o B (EPS)
-        d.categoria = cat ? ((cat.startsWith('menos') || cat.startsWith('secund') || cat === 'baja' || cat === 'b' || cat === '2') ? 'secundario' : 'importante')
-          : (prep.criterio ? (/\b[AB]\b/.test(prep.criterio) ? 'importante' : 'secundario') : '');
-        if (!d.categoria && !state.empresas.some(x => norm(x.nombre) === norm(d.nombre))) d.categoria = 'importante';
+        d.pabellon = limpio(r.pabellon); d.stand = limpio(r.stand);
+        // Sin columna de prioridad: principal si el criterio es A (cremalleras/hidráulica) o B (EPS)
+        d.categoria = cat ? nivelDe(r.categoria) : (prep.criterio ? (/\b[AB]\b/.test(prep.criterio) ? 'principal' : 'baja') : '');
+        if (!d.categoria && !state.empresas.some(x => norm(x.nombre) === norm(d.nombre))) d.categoria = 'principal';
       }
       else { d.fecha = aFecha(r.fecha); d.hora = aHora(r.hora); d.direccion = txt(r.direccion); }
       if (r.visitado !== undefined && txt(r.visitado)) d.visitado = ['si', 'x', 'true', '1', 'yes'].includes(norm(r.visitado));
@@ -1101,7 +1134,7 @@
       const cambios = {};
       Object.keys(d).forEach(k => {
         const v = d[k];
-        if (k === 'prep') cambios.prep = Object.assign({}, previa.prep || {}, Object.fromEntries(Object.entries(v).filter(([, x]) => x)));
+        if (k === 'prep') cambios.prep = v; // la preparación viene siempre entera del Excel
         else if (typeof v === 'boolean' || (v != null && String(v).trim() !== '')) cambios[k] = v;
       });
       await parchear(rutaEmpresa(previa.id), { set: cambios });
