@@ -382,3 +382,24 @@ a.menu-item { text-decoration: none; color: inherit; }
 .ley.niv3 { background: #F8F7FA; border-style: dashed; }
 .badge.comp { background: #FDE2E2; color: #9B2C2C; }
 .ley.comp { background: #FDE2E2; border-color: #F5C2C2; color: #9B2C2C; }
+
+/* Prioridad de visita tras la feria (A/B/C) y plan día a día */
+.badge.rango { background: #EEE9F8; color: #5B4596; }
+.badge.rango.rA { background: #E8E0F5; color: #4B3786; }
+.badge.rango.rB { background: #DDF0F8; color: #2D5B78; }
+.badge.rango.rC { background: #F2F0F5; color: #6B6080; }
+.ley.rA { background: #E8E0F5; border-color: #CDBDEB; }
+.ley.rB { background: #DDF0F8; border-color: #B5DCEE; }
+.ley.rC { background: #F2F0F5; }
+.plan-dia { display: grid; gap: 8px; }
+.p-cab { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.p-cab b { font-size: 15px; text-transform: capitalize; }
+.p-cab span { color: var(--soft); font-size: 14px; }
+.p-fila { display: flex; gap: 8px; align-items: flex-start; }
+.p-r { flex: none; width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; font-weight: 800; font-size: 13px; }
+.p-r.rA { background: #E8E0F5; color: #4B3786; } .p-r.rB { background: #DDF0F8; color: #2D5B78; } .p-r.rC { background: #F2F0F5; color: #6B6080; }
+.p-items { display: flex; flex-wrap: wrap; gap: 6px; }
+.p-chip { font: inherit; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--text); cursor: pointer; text-align: left; }
+.p-chip small { font-weight: 500; color: var(--soft); }
+.p-chip.rA { border-color: #CDBDEB; } .p-chip.rB { border-color: #B5DCEE; }
+.p-chip.libre { cursor: default; border-style: dashed; }

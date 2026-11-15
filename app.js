@@ -342,7 +342,38 @@
         ${hoteles.length ? hoteles.map(tarjetaHotel).join('') : '<p class="vacio">Todavía no hay hoteles.</p>'}
       </section>
 
+      ${planHTML()}
+
       <section class="card bloque">${notasHTML(VIAJE, state.viaje, 'notasViaje', '📝 Notas del viaje')}</section>`;
+  }
+
+  // Plan día a día después de la feria (viaje.json → planTrasFeria)
+  function planHTML() {
+    const plan = state.viaje.planTrasFeria;
+    if (!plan || !(plan.dias || []).length) return '';
+    const chip = (x, r) => {
+      const o = typeof x === 'string' ? { n: x } : x;
+      return o.id && empresaPorId(o.id)
+        ? `<button class="p-chip r${r}" data-ficha="${esc(o.id)}">${esc(o.n)}${o.nota ? ' <small>' + esc(o.nota) + '</small>' : ''}</button>`
+        : `<span class="p-chip r${r} libre">${esc(o.n)}${o.nota ? ' <small>' + esc(o.nota) + '</small>' : ''}</span>`;
+    };
+    const fila = (r, items) => (items || []).length ? `<div class="p-fila"><span class="p-r r${r}">${r}</span><div class="p-items">${items.map(x => chip(x, r)).join('')}</div></div>` : '';
+    return `
+      <section>
+        <div class="sec-head"><h2>🧭 Plan después de la feria</h2></div>
+        <div class="card plan-cab">
+          <p class="muted">${esc(plan.nota || '')}</p>
+          <div class="leyenda"><span class="ley rA">A · sí o sí</span><span class="ley rB">B · muy recomendable</span><span class="ley rC">C · si hay tiempo</span></div>
+        </div>
+        ${plan.dias.map(d => {
+          const f = fechaHora(d.fecha);
+          return `<div class="card plan-dia">
+            <div class="p-cab"><b>${f ? diaTxt(f) : esc(d.fecha)}</b><span>${esc(d.titulo || '')}</span></div>
+            ${d.extra ? `<p class="muted small">${esc(d.extra)}</p>` : ''}
+            ${fila('A', d.A)}${fila('B', d.B)}${fila('C', d.C)}
+          </div>`;
+        }).join('')}
+      </section>`;
   }
 
   // ═══════════ Eventos: Automechanika Shanghai y visita a empresas ═══════════
@@ -374,7 +405,7 @@
           ${lineaVisita(e)}
           ${resumen ? `<span class="extracto">${esc(resumen.slice(0, 140))}${resumen.length > 140 ? '…' : ''}</span>` : ''}
           ${e.prep && e.prep.grupo ? `<span class="muted small">🔧 ${esc(e.prep.grupo)}</span>` : ''}
-          <span class="tags">${t === 'feria' ? badgeNivel(e) : '<span class="badge lila">🏢 Visita</span>'}${badgeComp(e)}${badgeLinea(e)}${marcasEmpresa(e)}</span>
+          <span class="tags">${t === 'feria' ? badgeNivel(e) : '<span class="badge lila">🏢 Visita</span>'}${badgeComp(e)}${badgeRango(e)}${badgeLinea(e)}${marcasEmpresa(e)}</span>
         </button>
         <div class="emp-pie">${botonVisita(e)}</div>
       </div>`;
@@ -384,6 +415,14 @@
   const botonVisita = e => `<button class="btn-visita ${e.visita || tipoDe(e) === 'visita' ? 'on' : ''}" data-visita="${esc(e.id)}" ${tipoDe(e) === 'visita' ? 'disabled' : ''}>${e.visita || tipoDe(e) === 'visita' ? '✓ Visita' : '🏭 Visita'}</button>`;
   const lineaVisita = e => (e.visita || tipoDe(e) === 'visita') && (e.fecha || e.hora || e.direccion)
     ? `<span class="v-plan">📅 ${esc([e.fecha ? diaTxt(fechaHora(e.fecha)) : 'Sin fecha', e.hora].filter(Boolean).join(' · '))}${e.direccion ? ' · ' + esc(e.direccion) : ''}${e.visitaHecha ? ' · ✓ hecha' : ''}</span>` : '';
+
+  // Prioridad de visita tras la feria (A sí o sí, B muy recomendable, C si hay tiempo) y día previsto
+  const RANGOS = { A: 'A · visitar sí o sí', B: 'B · muy recomendable', C: 'C · si hay tiempo' };
+  const badgeRango = e => {
+    if (!e || !e.rango) return '';
+    const d = e.fecha ? fechaHora(e.fecha) : null;
+    return `<span class="badge rango r${esc(e.rango)}">🗓 ${esc(e.rango)}${d ? ' · ' + diaTxt(d) : ''}</span>`;
+  };
 
   function lineaFeria(e) {
     const f = empresaFeria(e);
@@ -405,7 +444,7 @@
           ${p.observacion ? `<span class="extracto">${esc(p.observacion)}</span>` : ''}
           ${lineaVisita(e)}
           ${resumen ? `<span class="extracto nota-txt">📝 ${esc(resumen.slice(0, 140))}${resumen.length > 140 ? '…' : ''}</span>` : ''}
-          <span class="tags">${e.prioritaria ? '<span class="badge rosa">⭐ Prioritaria</span>' : ''}<span class="badge azul">🎯 Seleccionada</span>${badgeComp(e)}${marcasEmpresa(e)}</span>
+          <span class="tags">${e.prioritaria ? '<span class="badge rosa">⭐ Prioritaria</span>' : ''}<span class="badge azul">🎯 Seleccionada</span>${badgeComp(e)}${badgeRango(e)}${marcasEmpresa(e)}</span>
         </button>
         ${lineaFeria(e)}
         <div class="emp-pie">${botonVisita(e)}</div>
@@ -841,6 +880,8 @@
         <div class="bloque-visita">
           <div class="prep-tit">🏭 Visita a fábrica</div>
           ${tipo !== 'visita' ? `<label class="campo check-campo"><input type="checkbox" name="visita" ${v.visita ? 'checked' : ''}><span>Vamos a visitarla (sale en «A visitar empresas»)</span></label>` : ''}
+          ${tipo !== 'visita' ? `<label class="campo"><span class="lbl">Prioridad de visita tras la feria</span>
+            <select name="rango" class="input">${[['', 'Sin asignar'], ...Object.entries(RANGOS)].map(([k, t]) => `<option value="${k}" ${(v.rango || '') === k ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></label>` : ''}
           <div class="campos">
             ${tipo !== 'visita' ? [{ k: 'fecha', label: 'Día', type: 'date', half: true }, { k: 'hora', label: 'Hora', type: 'time', half: true }, { k: 'direccion', label: 'Dirección de la fábrica' }].map(c => campoHTML(c, v)).join('') : ''}
             <label class="campo check-campo"><input type="checkbox" name="visitaHecha" ${v.visitaHecha ? 'checked' : ''}><span>Visita hecha</span></label>
@@ -872,7 +913,7 @@
         ['fecha', 'hora', 'direccion'].forEach(k => { datos[k] = String(fd.get(k) || '').trim(); });
       }
       if (tipo === 'seleccionada') datos.prioritaria = fd.get('prioritaria') === 'on';
-      if (tipo !== 'visita') datos.competidor = fd.get('competidor') === 'on';
+      if (tipo !== 'visita') { datos.competidor = fd.get('competidor') === 'on'; datos.rango = String(fd.get('rango') || ''); }
       const nuevoId = e ? e.id : uid();
       if (!e) datos.id = nuevoId;
       await parchear(rutaEmpresa(nuevoId), { set: datos });
@@ -1186,7 +1227,7 @@
         Origen: tipoDe(e) === 'feria' ? 'Feria (' + NIVELES[nivel(e)].txt.replace('⭐ ', '') + ')' : (tipoDe(e) === 'seleccionada' ? 'Seleccionada' : 'Otra'), 'Visita hecha': e.visitaHecha ? 'Sí' : 'No' }, notasDe(e)))), 'A visitar');
     X.utils.book_append_sheet(wb, hoja(['Orden', 'Empresa', 'Nombre chino', 'Pabellón', 'Stand', 'Categoría', 'Línea', 'Visita', 'Visitado', 'Contacto', 'Rol', 'Web', ...colsU],
       calcularRuta().map(({ orden, e }) => Object.assign({ Orden: orden, Empresa: e.nombre, 'Nombre chino': e.nombreZh, 'Pabellón': pabTxt(e.pabellon), Stand: e.stand,
-        'Categoría': NIVELES[nivel(e)].txt.replace('⭐ ', ''), 'Identificación': identTxt(e), 'Competidor': e.competidor ? 'Sí' : '', 'Línea': (e.prep || {}).linea || '', Visita: e.visita ? 'Sí' : '', Visitado: e.visitado ? 'Sí' : 'No', Contacto: e.contacto, Rol: e.rol, Web: e.web }, notasDe(e)))), 'Feria');
+        'Categoría': NIVELES[nivel(e)].txt.replace('⭐ ', ''), 'Identificación': identTxt(e), 'Competidor': e.competidor ? 'Sí' : '', 'Visita tras feria': e.rango || '', 'Día previsto': e.fecha || '', 'Línea': (e.prep || {}).linea || '', Visita: e.visita ? 'Sí' : '', Visitado: e.visitado ? 'Sí' : 'No', Contacto: e.contacto, Rol: e.rol, Web: e.web }, notasDe(e)))), 'Feria');
     X.utils.book_append_sheet(wb, hoja(['Empresa', 'Nombre chino', 'Ciudad', 'Fecha', 'Hora', 'Dirección', 'Contacto', 'Rol', 'Web', 'Visitado', ...colsU],
       visitas().map(e => Object.assign({ Empresa: e.nombre, 'Nombre chino': e.nombreZh, Ciudad: e.ciudad, Fecha: e.fecha, Hora: e.hora, 'Dirección': e.direccion,
         Contacto: e.contacto, Rol: e.rol, Web: e.web, Visitado: e.visitado ? 'Sí' : 'No' }, notasDe(e)))), 'Visitas');
