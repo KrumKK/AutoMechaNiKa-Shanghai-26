@@ -414,3 +414,33 @@ a.menu-item { text-decoration: none; color: inherit; }
 .d-nuevo { background: #EEF1FB; color: #3D4B7A; }
 .aviso-desg { margin-top: 8px; padding: 9px 12px; border-radius: 10px; background: #FFF6D9; color: #6E5410; font-size: 13.5px; line-height: 1.45; }
 .prep-fila .pre { white-space: pre-line; }
+
+/* Planning post feria */
+.pl-filtro { margin: 4px 0 12px; }
+.pl-dia { padding: 0; overflow: hidden; }
+.pl-cab { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; padding: 12px 16px; background: #F4F0FA; border-bottom: 1px solid var(--line); }
+.pl-cab b { font-size: 16px; }
+.pl-cab span { color: var(--soft); font-size: 14px; }
+.pl-cab .pl-cuenta { margin-left: auto; font-size: 12.5px; }
+.pl-extra { padding: 8px 16px 0; font-size: 13px; color: var(--soft); }
+.pl-quien { display: flex; align-items: center; gap: 6px; padding: 10px 16px 4px; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--soft); }
+.pl-item { display: flex; align-items: flex-start; gap: 10px; width: 100%; padding: 10px 14px 10px 12px; border-top: 1px solid #F0ECF6; border-left: 4px solid transparent; }
+.pl-quien + .pl-item { border-top: 0; }
+.pl-item.desg { background: #EEF8F2; }
+.pl-item.c-confirmada { border-left-color: #7CC9A0; }
+.pl-item.c-no { border-left-color: #E8A0A0; opacity: .75; }
+.pl-estado { font-size: 18px; line-height: 1.3; }
+.pl-body { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.pl-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pl-loc { font-size: 14px; color: var(--text); }
+.pl-loc.grande { font-size: 15px; margin: 0 0 12px; }
+.pl-nota { font-size: 13px; color: var(--soft); font-style: italic; }
+.pl-meta { font-size: 12.5px; color: var(--faint); }
+.pl-meta.c-confirmada { color: var(--verde); font-weight: 600; }
+.pl-meta.c-no { color: #9B2C2C; }
+.pl-movida { color: #8A5A1F; font-weight: 600; }
+.pl-vacio { padding: 10px 16px 14px; font-size: 13px; color: var(--soft); font-style: italic; }
+.pl-seg { flex-wrap: wrap; }
+.pl-seg label { min-width: 0; }
+.pl-enlace { margin-top: 10px; border-radius: 10px; width: 100%; text-align: left; }
+.ley.desg { background: #DCF2E6; border-color: #A9DDBF; }

@@ -48,6 +48,7 @@
     user: null,
     tab: ls.get('ams26:tab') || 'general',
     modoVisitar: ls.get('ams26:modoVisitar') || 'zona',
+    filtroPlan: ls.get('ams26:filtroPlan') || 'todos',
     modoRuta: ls.get('ams26:modo') || 'pabellones',
     filtro: 'todos',
     viaje: { vuelos: [], hoteles: [], usuarios: {} },
@@ -211,6 +212,7 @@
     ['eventos', '📅', 'Eventos'],
     ['seleccionadas', '🎯', 'Seleccionadas'],
     ['ruta', '🗺️', 'Ruta optimizada'],
+    ['planning', '🗓️', 'Planning post feria'],
     ['visitar', '🏭', 'A visitar empresas'],
     ['desguaces', '♻️', 'Preselección de desguaces'],
     ['resumen', '📊', 'Resumen'],
@@ -219,7 +221,7 @@
 
   function pintar() {
     const y = window.scrollY;
-    const vistas = { general: vistaGeneral, eventos: vistaEventos, seleccionadas: vistaSeleccionadas, ruta: vistaRuta, visitar: vistaVisitar, desguaces: vistaDesguaces, resumen: vistaResumen, presentaciones: vistaPresentaciones };
+    const vistas = { general: vistaGeneral, eventos: vistaEventos, seleccionadas: vistaSeleccionadas, ruta: vistaRuta, planning: vistaPlanning, visitar: vistaVisitar, desguaces: vistaDesguaces, resumen: vistaResumen, presentaciones: vistaPresentaciones };
     root.innerHTML = `
       <header class="marca">
         <img src="lizarte-logo.png" alt="Lizarte" class="marca-logo" width="120" height="34">
@@ -346,37 +348,25 @@
         ${hoteles.length ? hoteles.map(tarjetaHotel).join('') : '<p class="vacio">Todavía no hay hoteles.</p>'}
       </section>
 
-      ${planHTML()}
+      ${resumenPlanHTML()}
 
       <section class="card bloque">${notasHTML(VIAJE, state.viaje, 'notasViaje', '📝 Notas del viaje')}</section>`;
   }
 
   // Plan día a día después de la feria (viaje.json → planTrasFeria)
-  function planHTML() {
-    const plan = state.viaje.planTrasFeria;
-    if (!plan || !(plan.dias || []).length) return '';
-    const chip = (x, r) => {
-      const o = typeof x === 'string' ? { n: x } : x;
-      return o.id && empresaPorId(o.id)
-        ? `<button class="p-chip r${r}" data-ficha="${esc(o.id)}">${esc(o.n)}${o.nota ? ' <small>' + esc(o.nota) + '</small>' : ''}</button>`
-        : `<span class="p-chip r${r} libre">${esc(o.n)}${o.nota ? ' <small>' + esc(o.nota) + '</small>' : ''}</span>`;
-    };
-    const fila = (r, items) => (items || []).length ? `<div class="p-fila"><span class="p-r r${r}">${r}</span><div class="p-items">${items.map(x => chip(x, r)).join('')}</div></div>` : '';
+  function resumenPlanHTML() {
+    const l = enPlanning(), act = l.filter(e => confDe(e) !== 'no');
+    if (!l.length) return '';
+    const n = k => act.filter(e => confDe(e) === k).length;
+    const mov = act.filter(movidaDe).length;
     return `
       <section>
-        <div class="sec-head"><h2>🧭 Plan después de la feria</h2></div>
-        <div class="card plan-cab">
-          <p class="muted">${esc(plan.nota || '')}</p>
-          <div class="leyenda"><span class="ley rA">A · sí o sí</span><span class="ley rB">B · muy recomendable</span><span class="ley rC">C · si hay tiempo</span></div>
-        </div>
-        ${plan.dias.map(d => {
-          const f = fechaHora(d.fecha);
-          return `<div class="card plan-dia">
-            <div class="p-cab"><b>${f ? diaTxt(f) : esc(d.fecha)}</b><span>${esc(d.titulo || '')}</span></div>
-            ${d.extra ? `<p class="muted small">${esc(d.extra)}</p>` : ''}
-            ${fila('A', d.A)}${fila('B', d.B)}${fila('C', d.C)}
-          </div>`;
-        }).join('')}
+        <div class="sec-head"><h2>🗓️ Planning post feria</h2></div>
+        <button class="card fila" data-tab="planning">
+          <span class="fila-body"><b>${act.length} visitas previstas después de la feria</b>
+          <span class="muted">✅ ${n('confirmada')} confirmadas · ⏳ ${n('pendiente')} pendientes${mov ? ' · ↪ ' + mov + ' cambiadas de día' : ''}${l.length - act.length ? ' · ❌ ' + (l.length - act.length) + ' no pueden' : ''}</span></span>
+          <span class="flecha-der">›</span>
+        </button>
       </section>`;
   }
 
@@ -499,7 +489,9 @@
   }
 
   function vistaDesguaces() {
-    const lista = desguaces();
+    const todos = desguaces();
+    const lista = todos.filter(e => !e.otroDesguace);
+    const otros = todos.filter(e => e.otroDesguace);
     const n = state.viaje.notaDesguaces || {};
     return `
       <section>
@@ -515,6 +507,7 @@
         </div>
         <div class="acciones-fila"><button class="btn primary" data-nuevo="desguace">+ Añadir desguace</button></div>
         ${lista.length ? lista.map(tarjetaDesguace).join('') : '<p class="vacio">Aún no hay desguaces en la preselección.</p>'}
+        ${otros.length ? `<h3 class="grupo">Otros desguaces del planning (${otros.length})</h3>${otros.map(tarjetaDesguace).join('')}` : ''}
       </section>`;
   }
 
@@ -553,6 +546,137 @@
         </div>
         ${lista.length ? porNivel.map((l, n) => grupo(NIVELES[n].plural, l, n < 2, n === 0)).join('') : '<p class="vacio">Aún no hay empresas de la feria. Impórtalas desde Excel con el menú ⋯.</p>'}
       </section>`;
+  }
+
+  // ═══════════ Planning post feria ═══════════
+  // El día de cada visita es el campo «fecha» de la ficha: si cambia, la visita pasa sola al nuevo día.
+  const PLAN_INI = '2026-12-02', PLAN_FIN = '2026-12-19';
+  const CONF = { pendiente: { ico: '⏳', txt: 'Pendiente de confirmar', corto: 'Pendiente' }, confirmada: { ico: '✅', txt: 'Confirmada', corto: 'Confirmada' }, no: { ico: '❌', txt: 'No puede', corto: 'No puede' } };
+  const QUIENES = () => ['Juntos', ...CFG.USUARIOS];
+  const ordQuien = q => ({ Juntos: 0, 'Óscar': 1, Krum: 2 })[q] ?? (q ? 3 : 4);
+  const esDesg = e => tipoDe(e) === 'desguace' || !!e.esDesguace;
+  const confDe = e => CONF[e.confirmacion] ? e.confirmacion : 'pendiente';
+  const movidaDe = e => e.fechaPlan && e.fecha && e.fechaPlan !== e.fecha;
+  const ubicPlan = e => e.lugarVisita || e.ciudad || (empresaFeria(e) || {}).ciudad || 'Ubicación por confirmar';
+  // Entra en el planning lo marcado con «plan» y lo que tiene día entre el 2 y el 19 de diciembre con visita, prioridad o tipo visita/desguace
+  function enPlanning() {
+    const dentro = e => e.plan || (e.fecha && e.fecha >= PLAN_INI && e.fecha <= PLAN_FIN && (e.visita || e.rango || tipoDe(e) === 'visita' || tipoDe(e) === 'desguace'));
+    const lista = state.empresas.filter(dentro);
+    const cubiertas = new Set(lista.filter(e => tipoDe(e) === 'seleccionada').map(e => empresaFeria(e)).filter(Boolean).map(f => f.id));
+    return lista.filter(e => !cubiertas.has(e.id));
+  }
+  // La misma empresa en Seleccionadas y en la feria
+  const gemelas = e => tipoDe(e) === 'seleccionada' ? [empresaFeria(e)].filter(Boolean)
+    : seleccionadas().filter(x => empresaFeria(x) && empresaFeria(x).id === e.id);
+
+  function filaPlan(e) {
+    const c = confDe(e);
+    const antes = movidaDe(e) ? fechaHora(e.fechaPlan) : null;
+    return `
+      <button class="pl-item c-${c} ${esDesg(e) ? 'desg' : ''}" data-plan="${esc(e.id)}">
+        <span class="pl-estado" title="${esc(CONF[c].txt)}">${CONF[c].ico}</span>
+        <span class="pl-body">
+          <span class="pl-top"><b>${esc(e.nombre || 'Sin nombre')}</b>${e.rango ? `<span class="badge rango r${esc(e.rango)}">${esc(e.rango)}</span>` : ''}${esDesg(e) ? '<span class="badge desg">♻️ Desguace</span>' : ''}</span>
+          <span class="pl-loc">📍 ${esc(ubicPlan(e))}</span>
+          ${e.notaPlan ? `<span class="pl-nota">${esc(e.notaPlan)}</span>` : ''}
+          <span class="pl-meta c-${c}">${esc(CONF[c].txt)}${e.hora ? ' · ' + esc(e.hora) : ''}${antes ? ` · <span class="pl-movida">↪ antes, ${esc(diaTxt(antes))}</span>` : ''}</span>
+        </span>
+        <span class="flecha-der">›</span>
+      </button>`;
+  }
+
+  function filasPorQuien(items) {
+    let q = null;
+    return items.map(e => {
+      const k = e.quien || '';
+      const cab = k !== q ? `<div class="pl-quien">${k === 'Juntos' ? '👥 Juntos' : k ? `<span class="avatar xs ${color(k)}">${esc(k[0])}</span>${esc(k)}` : 'Sin asignar'}</div>` : '';
+      q = k;
+      return cab + filaPlan(e);
+    }).join('');
+  }
+
+  function vistaPlanning() {
+    const todas = enPlanning();
+    const filtro = state.filtroPlan || 'todos';
+    const visible = e => filtro === 'todos' || !e.quien || e.quien === 'Juntos' || e.quien === filtro;
+    const activas = todas.filter(e => confDe(e) !== 'no');
+    const noPueden = todas.filter(e => confDe(e) === 'no' && visible(e));
+    const plan = state.viaje.planTrasFeria || {};
+    const diasPlan = new Map((plan.dias || []).map(d => [d.fecha, d]));
+    const fechas = [...new Set([...diasPlan.keys(), ...activas.filter(e => e.fecha).map(e => e.fecha)])].sort();
+    const n = k => activas.filter(e => confDe(e) === k).length;
+    const mov = activas.filter(movidaDe).length;
+    const orden = (a, b) => ordQuien(a.quien) - ordQuien(b.quien) || nat(a.hora || '99', b.hora || '99') || nat(a.rango || 'Z', b.rango || 'Z') || nat(a.nombre, b.nombre);
+    const seg = (v, t) => `<button class="${filtro === v ? 'on' : ''}" data-set="filtroPlan" data-val="${esc(v)}">${esc(t)}</button>`;
+    const dia = f => {
+      const d = diasPlan.get(f) || {};
+      const delDia = activas.filter(e => e.fecha === f);
+      const items = delDia.filter(visible).sort(orden);
+      const fh = fechaHora(f);
+      const conf = items.filter(e => confDe(e) === 'confirmada').length;
+      return `
+        <div class="card pl-dia">
+          <div class="pl-cab"><b>${fh ? esc(diaTxt(fh)) : esc(f)}</b><span>${esc(d.titulo || '')}</span>${items.length ? `<span class="pl-cuenta">${items.length} ${items.length === 1 ? 'visita' : 'visitas'} · ✅ ${conf}</span>` : ''}</div>
+          ${d.extra ? `<p class="pl-extra">${esc(d.extra)}</p>` : ''}
+          ${items.length ? filasPorQuien(items) : (delDia.length ? `<p class="pl-vacio">Nada para ${esc(filtro)} este día.</p>` : '')}
+        </div>`;
+    };
+    const sinDia = activas.filter(e => !e.fecha && visible(e)).sort(orden);
+    return `
+      <section>
+        <div class="sec-head"><h2>🗓️ Planning post feria</h2></div>
+        <div class="card cabecera">
+          <span class="badge lila">VISITAS · 4 AL 18 DE DICIEMBRE</span>
+          <h2 class="titulo-serif">Planning post feria</h2>
+          <p class="muted">Todo está pendiente hasta que cada empresa confirme el día. Pulsa una empresa para marcarla como confirmada o cambiarla de día: pasa sola al día nuevo.</p>
+          <p class="muted">${activas.length} visitas · ✅ ${n('confirmada')} confirmadas · ⏳ ${n('pendiente')} pendientes${mov ? ' · ↪ ' + mov + ' cambiadas de día' : ''}${todas.length - activas.length ? ' · ❌ ' + (todas.length - activas.length) + ' no pueden' : ''}</p>
+          <div class="leyenda"><span class="ley rA">A · sí o sí</span><span class="ley rB">B · muy recomendable</span><span class="ley rC">C · si hay tiempo</span><span class="ley desg">♻️ Desguace</span></div>
+        </div>
+        <div class="seg pl-filtro">${seg('todos', 'Todos')}${CFG.USUARIOS.map(u => seg(u, u)).join('')}</div>
+        ${fechas.map(dia).join('')}
+        ${sinDia.length ? `<div class="card pl-dia"><div class="pl-cab"><b>Sin día</b><span>Opciones por encajar</span></div>${filasPorQuien(sinDia)}</div>` : ''}
+        ${noPueden.length ? `<details class="grupo-det"><summary>❌ No pueden (${noPueden.length})</summary><div class="card pl-dia">${noPueden.sort(orden).map(filaPlan).join('')}</div></details>` : ''}
+      </section>`;
+  }
+
+  function abrirPlan(id) {
+    const e = empresaPorId(id);
+    if (!e) return;
+    const radios = (name, val, ops) => `<div class="seg pl-seg">${ops.map(([k, t]) => `<label><input type="radio" name="${name}" value="${esc(k)}" ${val === k ? 'checked' : ''}><span>${esc(t)}</span></label>`).join('')}</div>`;
+    const m = abrirModal(`
+      <form class="editor" id="form-plan">
+        <div class="editor-head"><h2>${esc(e.nombre || 'Visita')}</h2><button type="button" class="icon-btn" data-cerrar>✕</button></div>
+        ${e.nombreZh ? `<p class="zh">${esc(e.nombreZh)}</p>` : ''}
+        <p class="pl-loc grande">📍 ${esc(ubicPlan(e))}</p>
+        <div class="campo"><span class="lbl">¿Nos ha confirmado la visita?</span>${radios('confirmacion', confDe(e), Object.entries(CONF).map(([k, o]) => [k, o.ico + ' ' + o.corto]))}</div>
+        <div class="campos">
+          <label class="campo half"><span class="lbl">Día de la visita</span><input class="input" type="date" name="fecha" value="${esc(e.fecha || '')}"></label>
+          <label class="campo half"><span class="lbl">Hora</span><input class="input" type="time" name="hora" value="${esc(e.hora || '')}"></label>
+        </div>
+        ${movidaDe(e) ? `<p class="muted small espacio">Prevista al principio el ${esc(diaTxt(fechaHora(e.fechaPlan)))}.</p>` : ''}
+        <div class="campo"><span class="lbl">Quién va</span>${radios('quien', e.quien || '', QUIENES().map(q => [q, q]))}</div>
+        <div class="campos">
+          <label class="campo"><span class="lbl">Prioridad</span><select name="rango" class="input">${[['', 'Sin asignar'], ...Object.entries(RANGOS)].map(([k, t]) => `<option value="${k}" ${(e.rango || '') === k ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></label>
+          <label class="campo"><span class="lbl">Lugar exacto (si no es la ubicación de la ficha)</span><input class="input" name="lugarVisita" value="${esc(e.lugarVisita || '')}" placeholder="${esc(e.ciudad || '')}"></label>
+          <label class="campo"><span class="lbl">Nota corta</span><input class="input" name="notaPlan" value="${esc(e.notaPlan || '')}"></label>
+        </div>
+        <div class="pie"><button type="button" class="btn soft" data-ver-ficha>Ficha completa</button><button type="submit" class="btn primary">Guardar</button></div>
+      </form>`);
+    const form = m.querySelector('form');
+    form.querySelector('[data-ver-ficha]').addEventListener('click', () => { cerrarModal(); abrirFicha(id); });
+    form.addEventListener('submit', async ev => {
+      ev.preventDefault();
+      const fd = new FormData(form);
+      const g = k => String(fd.get(k) || '').trim();
+      const datos = { confirmacion: g('confirmacion') || 'pendiente', fecha: g('fecha'), hora: g('hora'), quien: g('quien'), rango: g('rango'), lugarVisita: g('lugarVisita'), notaPlan: g('notaPlan'), plan: true };
+      const cambioDia = (e.fecha || '') !== datos.fecha;
+      if (cambioDia) { const orig = e.fechaPlan || e.fecha || ''; datos.fechaPlan = orig && orig !== datos.fecha ? orig : ''; }
+      if (tipoDe(e) !== 'visita') { if (datos.confirmacion === 'confirmada') datos.visita = true; if (datos.confirmacion === 'no') datos.visita = false; }
+      for (const x of [e, ...gemelas(e)]) await parchear(rutaEmpresa(x.id), { set: datos });
+      cerrarModal();
+      pintar();
+      toast(cambioDia && datos.fecha ? 'Pasa al ' + diaTxt(fechaHora(datos.fecha)) : (cambioDia ? 'Queda sin día' : 'Guardado'));
+    });
   }
 
   // ═══════════ A visitar empresas (visitas a fábrica) ═══════════
@@ -945,6 +1069,7 @@
             ${tipo !== 'visita' ? [{ k: 'fecha', label: 'Día', type: 'date', half: true }, { k: 'hora', label: 'Hora', type: 'time', half: true }, { k: 'direccion', label: 'Dirección de la fábrica' }].map(c => campoHTML(c, v)).join('') : ''}
             <label class="campo check-campo"><input type="checkbox" name="visitaHecha" ${v.visitaHecha ? 'checked' : ''}><span>Visita hecha</span></label>
           </div>
+          ${e && enPlanning().some(x => x.id === e.id || gemelas(x).some(g => g.id === e.id)) ? `<button type="button" class="en-feria pl-enlace" data-abrir-plan="${esc(e.id)}">🗓️ Planning post feria: ${CONF[confDe(e)].ico} ${esc(CONF[confDe(e)].txt)}${e.fecha ? ' · ' + esc(diaTxt(fechaHora(e.fecha))) : ''}${e.quien ? ' · ' + esc(e.quien) : ''} ›</button>` : ''}
         </div>
         ${tipo === 'seleccionada' && e ? lineaFeria(e) : ''}
         ${prepHTML(v)}
@@ -1003,6 +1128,8 @@
     });
 
     form.addEventListener('click', async ev => {
+      const ap = ev.target.closest('[data-abrir-plan]');
+      if (ap) { ev.preventDefault(); cerrarModal(); abrirPlan(ap.dataset.abrirPlan); return; }
       const del = ev.target.closest('[data-borrar-foto]');
       if (del) {
         ev.preventDefault();
@@ -1134,13 +1261,14 @@
     if (cp) { copiarTexto(cp.dataset.copiar); return; }
     const bv = e.target.closest('[data-visita]');
     if (bv) { toggleVisita(bv.dataset.visita); return; }
-    const t = e.target.closest('[data-tab],[data-set],[data-nuevo],[data-editar],[data-ficha],[data-visitado],[data-present],[data-accion]');
+    const t = e.target.closest('[data-tab],[data-set],[data-nuevo],[data-editar],[data-plan],[data-ficha],[data-visitado],[data-present],[data-accion]');
     if (!t) return;
     const d = t.dataset;
     if (d.tab) { state.tab = d.tab; ls.set('ams26:tab', d.tab); pintar(); window.scrollTo(0, 0); }
-    else if (d.set) { state[d.set] = d.val; if (d.set === 'modoRuta') ls.set('ams26:modo', d.val); if (d.set === 'modoVisitar') ls.set('ams26:modoVisitar', d.val); pintar(); }
+    else if (d.set) { state[d.set] = d.val; if (d.set === 'modoRuta') ls.set('ams26:modo', d.val); if (d.set === 'modoVisitar') ls.set('ams26:modoVisitar', d.val); if (d.set === 'filtroPlan') ls.set('ams26:filtroPlan', d.val); pintar(); }
     else if (d.nuevo) { if (d.nuevo === 'vuelo' || d.nuevo === 'hotel') editarViaje(d.nuevo); else abrirFicha(null, d.nuevo); }
     else if (d.editar) editarViaje(d.editar, d.id);
+    else if (d.plan) abrirPlan(d.plan);
     else if (d.ficha) abrirFicha(d.ficha);
     else if (d.visitado) {
       const emp = empresaPorId(d.visitado);
@@ -1294,6 +1422,11 @@
       seleccionadas().map(e => { const f = empresaFeria(e), p = e.prep || {}; return Object.assign({ Empresa: e.nombre, Prioritaria: e.prioritaria ? 'Sí' : '', Visita: e.visita ? 'Sí' : '', Ciudad: e.ciudad,
         Procedencia: p.procedencia, 'Tamaño': p.tamano, 'Observación': p.observacion, 'En la feria': f ? 'Pab. ' + pabTxt(f.pabellon) + ' · ' + (f.stand || '') : '',
         Contacto: e.contacto, Email: e.email, 'Teléfono': e.telefono, Visitada: e.visitado ? 'Sí' : 'No' }, notasDe(e)); })), 'Seleccionadas');
+    const diasP = new Map(((state.viaje.planTrasFeria || {}).dias || []).map(d => [d.fecha, d.titulo]));
+    X.utils.book_append_sheet(wb, hoja(['Día', 'Zona del día', 'Empresa', 'Tipo', 'Ubicación', 'Quién va', 'Prioridad', 'Confirmación', 'Hora', 'Prevista antes', 'Nota'],
+      enPlanning().sort((a, b) => nat(a.fecha || '9999', b.fecha || '9999') || ordQuien(a.quien) - ordQuien(b.quien) || nat(a.nombre, b.nombre)).map(e => ({ 'Día': e.fecha ? diaTxt(fechaHora(e.fecha)) : 'Sin día', 'Zona del día': diasP.get(e.fecha) || '',
+        Empresa: e.nombre, Tipo: esDesg(e) ? 'Desguace' : (tipoDe(e) === 'feria' ? 'Feria' : origenTxt(e)), 'Ubicación': ubicPlan(e), 'Quién va': e.quien || '', Prioridad: e.rango || '', 'Confirmación': CONF[confDe(e)].txt,
+        Hora: e.hora || '', 'Prevista antes': movidaDe(e) ? diaTxt(fechaHora(e.fechaPlan)) : '', Nota: e.notaPlan || '' }))), 'Planning');
     X.utils.book_append_sheet(wb, hoja(['Nº', 'Desguace', 'Nombre chino', 'Ubicación', 'Visita', 'Visita tras feria', 'Día previsto', ...CAMPOS_DESG.map(c => c[1]), 'Email', 'Teléfono', 'Web', 'Visitado', ...colsU],
       desguaces().map(e => { const p = e.prep || {}; const o = { 'Nº': p.numero || '', Desguace: e.nombre, 'Nombre chino': e.nombreZh, 'Ubicación': e.ciudad, Visita: e.visita ? 'Sí' : '', 'Visita tras feria': e.rango || '', 'Día previsto': e.fecha || '',
         Email: e.email, 'Teléfono': e.telefono, Web: e.web, Visitado: e.visitado ? 'Sí' : 'No' }; CAMPOS_DESG.forEach(([k, l]) => { o[l] = p[k] || ''; }); return Object.assign(o, notasDe(e)); })), 'Desguaces');
