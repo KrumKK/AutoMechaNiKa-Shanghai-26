@@ -376,3 +376,9 @@ a.menu-item { text-decoration: none; color: inherit; }
 .editor-head + .ident { margin: -4px 0 10px; }
 .subgrupo { margin: 14px 4px 6px; font-size: 13px; font-weight: 700; color: var(--soft); text-transform: uppercase; letter-spacing: .04em; }
 .subgrupo.p1 { color: #5B4596; } .subgrupo.p2 { color: #2D6A8A; } .subgrupo.p3 { color: #8A4B22; } .subgrupo.p4 { color: #A0005E; } .subgrupo.p5 { color: #1F6B63; }
+
+/* Sin prioridad y competidor (estado del proyecto 15-11) */
+.card.niv3 { background: #F8F7FA; border-left: 5px dashed #CFC8DA; }
+.ley.niv3 { background: #F8F7FA; border-style: dashed; }
+.badge.comp { background: #FDE2E2; color: #9B2C2C; }
+.ley.comp { background: #FDE2E2; border-color: #F5C2C2; color: #9B2C2C; }

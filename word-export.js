@@ -12,6 +12,7 @@
   const ANCHO = 9638; // A4 con márgenes de 2 cm, en DXA
   const CRITERIOS = { A: 'cremalleras / cajas hidráulicas', B: 'EPS', C: 'refabrica recambios' };
   const nivelTxt = e => { const c = String(e.categoria || '').toLowerCase();
+    if (c === 'sin' || c === 'sin prioridad' || c === 'sin-prioridad') return 'Sin prioridad';
     return (c === 'alta' || c === 'secundaria-alta') ? 'Secundaria alta' : ((c === 'baja' || c === 'secundario' || c === 'secundaria-baja') ? 'Secundaria baja' : 'Principal'); };
   const CAMPOS_PREP = [['procedencia', 'Procedencia'], ['tamano', 'Tamaño según documentos'], ['observacion', 'Observación'], ['linea', 'Línea'], ['tipoEmpresa', 'Tipo'], ['grupo', 'Grupo de producto'], ['actividad', 'Actividad'], ['familia', 'Familia productos'],
     ['filtros', 'Filtros PT Com'], ['criterio', 'Criterio'], ['prioridadOscar', 'Prioridad ruta Óscar'], ['motivo', 'Motivo de la priorización'],
@@ -215,7 +216,7 @@
       const titulo = (esFeria && e.orden ? e.orden + '. ' : '') + (e.nombre || 'Empresa');
       const out = [new Paragraph({ heading: HeadingLevel.HEADING_2, children: [run(titulo)] })];
       if (e.nombreZh) out.push(new Paragraph({ spacing: { after: 100 }, children: [run(e.nombreZh, { size: 22, color: GRIS, font: { eastAsia: 'Microsoft YaHei' } })] }));
-      const estado = [esFeria ? 'Prioridad ' + nivelTxt(e).toLowerCase() + (e._ident ? ' · ' + e._ident : '') : (esSelec ? (e.prioritaria ? 'Seleccionada · prioritaria' : 'Seleccionada') : 'Visita'), e.visitado ? 'Visitada' : 'Pendiente de visitar'].join(' · ');
+      const estado = [esFeria ? 'Prioridad ' + nivelTxt(e).toLowerCase() + (e._ident ? ' · ' + e._ident : '') + (e.competidor ? ' · Competidor a vigilar' : '') : (esSelec ? (e.prioritaria ? 'Seleccionada · prioritaria' : 'Seleccionada') : 'Visita'), e.visitado ? 'Visitada' : 'Pendiente de visitar'].join(' · ');
       const datos = tablaDatos([
         esSelec ? ['En la feria', e._feria ? (e.enFeriaDuda ? 'Posiblemente: ' : '') + 'Pabellón ' + (pabTxt(e._feria.pabellon) || '¿?') + ' · Stand ' + (e._feria.stand || '¿?') : ''] : esFeria ? ['Pabellón / stand', (e.pabellon ? 'Pabellón ' + pabTxt(e.pabellon) : 'Sin pabellón') + (e.stand ? ' · Stand ' + e.stand : '')] : ['Cuándo', [fechaLarga(e.fecha), e.hora].filter(Boolean).join(' · ')],
         ['Estado', estado],

@@ -61,17 +61,21 @@
   const NIVELES = [
     { k: 'principal', txt: '⭐ Principal', plural: '⭐ Principales', badge: 'verde' },
     { k: 'alta', txt: 'Secundaria alta', plural: 'Secundaria alta', badge: 'amarillo' },
-    { k: 'baja', txt: 'Secundaria baja', plural: 'Secundaria baja', badge: 'gris' }
+    { k: 'baja', txt: 'Secundaria baja', plural: 'Secundaria baja', badge: 'gris' },
+    { k: 'sin', txt: 'Sin prioridad', plural: 'Sin prioridad', badge: 'gris' }
   ];
   const nivel = e => {
     const c = String((e && e.categoria) || '').toLowerCase();
     if (c === 'alta' || c === 'secundaria-alta') return 1;
     if (c === 'baja' || c === 'secundario' || c === 'secundaria-baja') return 2;
+    if (c === 'sin' || c === 'sin prioridad' || c === 'sin-prioridad') return 3;
     return 0;
   };
   const esImportante = e => nivel(e) === 0;
   const badgeNivel = e => `<span class="badge ${NIVELES[nivel(e)].badge}">${NIVELES[nivel(e)].txt}</span>`;
   const claseNivel = e => tipoDe(e) === 'feria' ? 'niv' + nivel(e) : '';
+  // Competidor a vigilar (decisión del estado del proyecto del 15-11): se marca en la ficha
+  const badgeComp = e => e && e.competidor ? '<span class="badge comp">👁 Competidor</span>' : '';
   const badgeLinea = e => (e.prep && e.prep.linea) ? `<span class="badge azul">${esc(e.prep.linea)}</span>` : '';
   // Pabellones MM (MM2, MM4, MM6, MM8): están en la entreplanta del NECC, zona de piezas y componentes
   const pabTxt = p => { p = String(p || '').trim(); return p.replace(/\b(MM\s*\d)\b/gi, '$1 (entreplanta)'); };
@@ -370,7 +374,7 @@
           ${lineaVisita(e)}
           ${resumen ? `<span class="extracto">${esc(resumen.slice(0, 140))}${resumen.length > 140 ? '…' : ''}</span>` : ''}
           ${e.prep && e.prep.grupo ? `<span class="muted small">🔧 ${esc(e.prep.grupo)}</span>` : ''}
-          <span class="tags">${t === 'feria' ? badgeNivel(e) : '<span class="badge lila">🏢 Visita</span>'}${badgeLinea(e)}${marcasEmpresa(e)}</span>
+          <span class="tags">${t === 'feria' ? badgeNivel(e) : '<span class="badge lila">🏢 Visita</span>'}${badgeComp(e)}${badgeLinea(e)}${marcasEmpresa(e)}</span>
         </button>
         <div class="emp-pie">${botonVisita(e)}</div>
       </div>`;
@@ -401,7 +405,7 @@
           ${p.observacion ? `<span class="extracto">${esc(p.observacion)}</span>` : ''}
           ${lineaVisita(e)}
           ${resumen ? `<span class="extracto nota-txt">📝 ${esc(resumen.slice(0, 140))}${resumen.length > 140 ? '…' : ''}</span>` : ''}
-          <span class="tags">${e.prioritaria ? '<span class="badge rosa">⭐ Prioritaria</span>' : ''}<span class="badge azul">🎯 Seleccionada</span>${marcasEmpresa(e)}</span>
+          <span class="tags">${e.prioritaria ? '<span class="badge rosa">⭐ Prioritaria</span>' : ''}<span class="badge azul">🎯 Seleccionada</span>${badgeComp(e)}${marcasEmpresa(e)}</span>
         </button>
         ${lineaFeria(e)}
         <div class="emp-pie">${botonVisita(e)}</div>
@@ -428,7 +432,7 @@
   function vistaEventos() {
     const lista = feria().sort((a, b) => nat(a.nombre, b.nombre));
     const imp = lista.filter(esImportante);
-    const porNivel = [0, 1, 2].map(n => lista.filter(e => nivel(e) === n));
+    const porNivel = [0, 1, 2, 3].map(n => lista.filter(e => nivel(e) === n));
     // Las principales van subdivididas por identificación (P1…P4) y luego el resto
     const conSubgrupos = items => {
       let actual = null;
@@ -452,7 +456,7 @@
           <span class="badge rosa">FERIA · SHANGHÁI</span>
           <h2 class="titulo-serif">Automechanika Shanghai</h2>
           <p class="muted">${lista.length} empresas · ${imp.length} principales · ${lista.filter(e => e.visitado).length} visitadas · ${lista.filter(e => e.visita).length} marcadas para visitar</p>
-          <div class="leyenda"><span class="ley niv0">Principal</span><span class="ley niv1">Secundaria alta</span><span class="ley niv2">Secundaria baja</span></div>
+          <div class="leyenda"><span class="ley niv0">Principal</span><span class="ley niv1">Secundaria alta</span><span class="ley niv2">Secundaria baja</span><span class="ley niv3">Sin prioridad</span><span class="ley comp">👁 Competidor</span></div>
         </div>
         <div class="acciones-fila">
           <button class="btn primary" data-nuevo="feria">+ Añadir empresa</button>
@@ -544,7 +548,7 @@
     const ordenados = feria().sort((a, b) => (idx(a.pabellon) - idx(b.pabellon)) || nat(a.pabellon, b.pabellon) || nat(a.stand, b.stand) || nat(a.nombre, b.nombre));
     // Por prioridad: las principales salen agrupadas P1…P4 (y el resto), cada grupo en orden de pabellones
     const ruta = state.modoRuta === 'importantes'
-      ? [0, 1, 2].flatMap(n => { const l = ordenados.filter(e => nivel(e) === n); return n === 0 ? l.sort((a, b) => ordCriterio(a) - ordCriterio(b)) : l; })
+      ? [0, 1, 2, 3].flatMap(n => { const l = ordenados.filter(e => nivel(e) === n); return n === 0 ? l.sort((a, b) => ordCriterio(a) - ordCriterio(b)) : l; })
       : ordenados;
     return ruta.map((e, i) => ({ orden: i + 1, e }));
   }
@@ -572,7 +576,7 @@
               ${badgeIdent(e)}
               <span class="emp-top"><span class="num">${orden}</span><b>${esc(e.nombre || 'Sin nombre')}</b></span>
               <span class="muted">Pab. ${esc(pabTxt(e.pabellon) || '¿?')} · Stand ${esc(e.stand || '¿?')}</span>
-              <span class="tags">${badgeNivel(e)}${badgeLinea(e)}${marcasEmpresa(e)}</span>
+              <span class="tags">${badgeNivel(e)}${badgeComp(e)}${badgeLinea(e)}${marcasEmpresa(e)}</span>
             </button>
             <div class="emp-pie">${botonVisita(e)}</div>
           </div>`;
@@ -832,6 +836,7 @@
           ${contacto.map(c => campoHTML(c, v)).join('')}
           <label class="campo check-campo"><input type="checkbox" name="visitado" ${v.visitado ? 'checked' : ''}><span>Ya visitada</span></label>
           ${tipo === 'seleccionada' ? `<label class="campo check-campo"><input type="checkbox" name="prioritaria" ${v.prioritaria ? 'checked' : ''}><span>⭐ Prioritaria</span></label>` : ''}
+          ${tipo !== 'visita' ? `<label class="campo check-campo"><input type="checkbox" name="competidor" ${v.competidor ? 'checked' : ''}><span>👁 Competidor a vigilar</span></label>` : ''}
         </div>
         <div class="bloque-visita">
           <div class="prep-tit">🏭 Visita a fábrica</div>
@@ -867,6 +872,7 @@
         ['fecha', 'hora', 'direccion'].forEach(k => { datos[k] = String(fd.get(k) || '').trim(); });
       }
       if (tipo === 'seleccionada') datos.prioritaria = fd.get('prioritaria') === 'on';
+      if (tipo !== 'visita') datos.competidor = fd.get('competidor') === 'on';
       const nuevoId = e ? e.id : uid();
       if (!e) datos.id = nuevoId;
       await parchear(rutaEmpresa(nuevoId), { set: datos });
@@ -1180,7 +1186,7 @@
         Origen: tipoDe(e) === 'feria' ? 'Feria (' + NIVELES[nivel(e)].txt.replace('⭐ ', '') + ')' : (tipoDe(e) === 'seleccionada' ? 'Seleccionada' : 'Otra'), 'Visita hecha': e.visitaHecha ? 'Sí' : 'No' }, notasDe(e)))), 'A visitar');
     X.utils.book_append_sheet(wb, hoja(['Orden', 'Empresa', 'Nombre chino', 'Pabellón', 'Stand', 'Categoría', 'Línea', 'Visita', 'Visitado', 'Contacto', 'Rol', 'Web', ...colsU],
       calcularRuta().map(({ orden, e }) => Object.assign({ Orden: orden, Empresa: e.nombre, 'Nombre chino': e.nombreZh, 'Pabellón': pabTxt(e.pabellon), Stand: e.stand,
-        'Categoría': NIVELES[nivel(e)].txt.replace('⭐ ', ''), 'Identificación': identTxt(e), 'Línea': (e.prep || {}).linea || '', Visita: e.visita ? 'Sí' : '', Visitado: e.visitado ? 'Sí' : 'No', Contacto: e.contacto, Rol: e.rol, Web: e.web }, notasDe(e)))), 'Feria');
+        'Categoría': NIVELES[nivel(e)].txt.replace('⭐ ', ''), 'Identificación': identTxt(e), 'Competidor': e.competidor ? 'Sí' : '', 'Línea': (e.prep || {}).linea || '', Visita: e.visita ? 'Sí' : '', Visitado: e.visitado ? 'Sí' : 'No', Contacto: e.contacto, Rol: e.rol, Web: e.web }, notasDe(e)))), 'Feria');
     X.utils.book_append_sheet(wb, hoja(['Empresa', 'Nombre chino', 'Ciudad', 'Fecha', 'Hora', 'Dirección', 'Contacto', 'Rol', 'Web', 'Visitado', ...colsU],
       visitas().map(e => Object.assign({ Empresa: e.nombre, 'Nombre chino': e.nombreZh, Ciudad: e.ciudad, Fecha: e.fecha, Hora: e.hora, 'Dirección': e.direccion,
         Contacto: e.contacto, Rol: e.rol, Web: e.web, Visitado: e.visitado ? 'Sí' : 'No' }, notasDe(e)))), 'Visitas');
@@ -1249,7 +1255,8 @@
     const n = norm(v);
     if (!n) return '';
     if (n.startsWith('secundaria alta') || n === 'media' || n === '2') return 'alta';
-    if (n.startsWith('secundaria') || n.startsWith('sin prioridad') || n.startsWith('menos') || n.startsWith('secundario') || n === 'baja' || n === '3' || n === 'c') return 'baja';
+    if (n.startsWith('sin prioridad')) return 'sin';
+    if (n.startsWith('secundaria') || n.startsWith('menos') || n.startsWith('secundario') || n === 'baja' || n === '3' || n === 'c') return 'baja';
     return 'principal';
   }
 
