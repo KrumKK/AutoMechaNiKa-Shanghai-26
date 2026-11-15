@@ -403,3 +403,14 @@ a.menu-item { text-decoration: none; color: inherit; }
 .p-chip small { font-weight: 500; color: var(--soft); }
 .p-chip.rA { border-color: #CDBDEB; } .p-chip.rB { border-color: #B5DCEE; }
 .p-chip.libre { cursor: default; border-style: dashed; }
+
+/* Preselección de desguaces */
+.badge.desg { background: #DCF2E6; color: #23664A; }
+.desg { padding: 0; overflow: hidden; border-left-color: #8FD1B0; }
+.desg .emp-pie { padding-top: 8px; }
+.d-pro, .d-contra, .d-nuevo { font-size: 13px; line-height: 1.4; padding: 5px 9px; border-radius: 8px; }
+.d-pro { background: #EAF7EF; color: #23664A; }
+.d-contra { background: #FFF2E3; color: #8A5A1F; }
+.d-nuevo { background: #EEF1FB; color: #3D4B7A; }
+.aviso-desg { margin-top: 8px; padding: 9px 12px; border-radius: 10px; background: #FFF6D9; color: #6E5410; font-size: 13.5px; line-height: 1.45; }
+.prep-fila .pre { white-space: pre-line; }
