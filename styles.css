@@ -454,3 +454,17 @@ a.menu-item { text-decoration: none; color: inherit; }
 .ley.xie { background: #ECE5F8; color: #45317F; }
 .campo.check { display: flex; align-items: center; gap: 8px; margin: 4px 0 10px; font-size: 14px; }
 .campo.check input { width: 18px; height: 18px; }
+
+/* v1.15: WeChat */
+.wx-caja { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; background: #E6F6EC; border: 1px solid #C5E8D2; border-radius: 12px; padding: 10px 12px; margin: 6px 0 12px; }
+.wx-tit { font-weight: 700; color: #1F5E43; margin-right: 4px; }
+.btn.wx { background: #2BAE66; color: #fff; border-color: #2BAE66; text-decoration: none; }
+.badge.wxb { background: #E6F6EC; color: #1F5E43; }
+.wx-linea { color: #1F5E43; }
+
+/* v1.15: cerrar visita a fábrica en el stand */
+.aviso-fab { display: block; margin: 6px 0 4px; padding: 7px 10px; border-radius: 10px; background: #FFE3C7; border: 1px solid #F5C08E; color: #7A3E0C; font-weight: 800; font-size: 13px; letter-spacing: .2px; }
+.aviso-fab small { display: block; font-weight: 600; font-size: 12px; letter-spacing: 0; margin-top: 2px; }
+.aviso-fab.xie { background: #ECE5F8; border-color: #D3C6EF; color: #45317F; font-weight: 700; }
+.aviso-fab.ok { background: #E6F6EC; border-color: #C5E8D2; color: #1F5E43; font-weight: 700; }
+form.editor .aviso-fab { font-size: 14px; }

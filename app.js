@@ -302,13 +302,13 @@
       </div>`;
   }
 
-  async function copiarTexto(t) {
+  async function copiarTexto(t, msg) {
     let ok = false;
     try { await navigator.clipboard.writeText(t); ok = true; } catch (e) {
       try { const ta = document.createElement('textarea'); ta.value = t; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
         document.body.appendChild(ta); ta.select(); ok = document.execCommand('copy'); ta.remove(); } catch (e2) { ok = false; }
     }
-    toast(ok ? 'Dirección copiada. Pégala en DiDi en el campo de destino.' : 'No se pudo copiar. Mantén pulsado el texto para copiarlo.');
+    toast(ok ? (msg || 'Dirección copiada. Pégala en DiDi en el campo de destino.') : 'No se pudo copiar. Mantén pulsado el texto para copiarlo.');
   }
 
   // ═══════════ General: organización del viaje ═══════════
@@ -400,6 +400,8 @@
           ${e.nombreZh ? `<span class="zh">${esc(e.nombreZh)}</span>` : ''}
           <span class="muted">${linea}</span>
           ${pr.contacto ? `<span class="muted small">👤 ${esc(pr.contacto)}${pr.rol ? ' · ' + esc(pr.rol) : ''}</span>` : ''}
+          ${t === 'feria' ? avisoFabrica(e) : ''}
+          ${tieneWx(pr) ? '<span class="muted small wx-linea">💬 Tiene WeChat o móvil</span>' : ''}
           ${e.ciudad && t === 'feria' ? `<span class="muted small">📍 ${esc(e.ciudad)}${e.pais && e.pais !== 'China' ? ', ' + esc(e.pais) : ''}</span>` : ''}
           ${pr !== e ? `<span class="muted small">🎯 Ficha única con Seleccionadas (${esc(pr.nombre)})</span>` : ''}
           ${lineaVisita(pr)}
@@ -574,6 +576,33 @@
   }
   const enPlanning = () => state.empresas.filter(estaEnPlan);
 
+  // Empresas que exponen y están en el planning: en su stand hay que cerrar la visita a la fábrica
+  function avisoFabrica(e) {
+    if (!e) return '';
+    const p = principal(e);
+    const fer = tipoDe(e) === 'feria' ? e : feriaUnida(p);
+    if (!fer || !(fer.pabellon || fer.stand) || !estaEnPlan(p)) return '';
+    const c = confDe(p);
+    if (c === 'no') return '';
+    const dia = p.fecha ? diaTxt(fechaHora(p.fecha)) : 'sin día todavía';
+    if (c === 'confirmada') return `<span class="aviso-fab ok">🏭 Visita a su fábrica confirmada · ${esc(dia)}</span>`;
+    if (p.dependeXie) return `<span class="aviso-fab xie">🏭 La visita a su fábrica la cierra Mr. Xie. En el stand, solo saludar · ${esc(dia)}</span>`;
+    return `<span class="aviso-fab">🏭 CERRAR EN EL STAND LA VISITA A SU FÁBRICA<small>Día propuesto: ${esc(dia)}</small></span>`;
+  }
+
+  // WeChat: enlace directo (abre WeChat y añade el contacto) o móvil chino (WeChat › Añadir contacto › número)
+  const tieneWx = e => !!((e.wechat || '').trim() || (e.movil || '').trim());
+  function botonesWx(e) {
+    const w = (e.wechat || '').trim(), mv = (e.movil || '').trim();
+    if (!w && !mv) return '';
+    const enlace = /^https?:\/\//i.test(w);
+    return `<div class="wx-caja">
+        <span class="wx-tit">💬 WeChat</span>
+        ${enlace ? `<a class="btn wx" href="${esc(w)}" target="_blank" rel="noopener">Abrir en WeChat</a>` : (w ? `<button type="button" class="btn wx" data-copiar="${esc(w)}" data-msg="ID copiado. En WeChat: Añadir contacto y pégalo.">📋 Copiar ID: ${esc(w)}</button>` : '')}
+        ${mv ? `<button type="button" class="btn soft" data-copiar="${esc(mv.replace(/\s/g, ''))}" data-msg="Móvil copiado. En WeChat: Añadir contacto y pégalo.">📋 Copiar móvil ${esc(mv)}</button>` : ''}
+      </div>`;
+  }
+
   function filaPlan(e, conDia) {
     const c = confDe(e);
     const antes = movidaDe(e) ? fechaHora(e.fechaPlan) : null;
@@ -581,7 +610,7 @@
       <button class="pl-item c-${c} ${esDesg(e) ? 'desg' : ''}" data-plan="${esc(e.id)}">
         <span class="pl-estado" title="${esc(CONF[c].txt)}">${CONF[c].ico}</span>
         <span class="pl-body">
-          <span class="pl-top"><b>${esc(e.nombre || 'Sin nombre')}</b>${e.rango ? `<span class="badge rango r${esc(e.rango)}">${esc(e.rango)}</span>` : ''}${esDesg(e) ? '<span class="badge desg">♻️ Desguace</span>' : ''}${e.dependeXie ? '<span class="badge xie">Confirma Mr. Xie</span>' : ''}${e.separable ? '<span class="badge sep">⇄ se puede separar</span>' : ''}</span>
+          <span class="pl-top"><b>${esc(e.nombre || 'Sin nombre')}</b>${e.rango ? `<span class="badge rango r${esc(e.rango)}">${esc(e.rango)}</span>` : ''}${esDesg(e) ? '<span class="badge desg">♻️ Desguace</span>' : ''}${e.dependeXie ? '<span class="badge xie">Confirma Mr. Xie</span>' : ''}${e.separable ? '<span class="badge sep">⇄ se puede separar</span>' : ''}${tieneWx(e) ? '<span class="badge wxb">💬 WeChat</span>' : ''}</span>
           <span class="pl-loc">📍 ${esc(ubicPlan(e))}</span>
           ${e.notaPlan ? `<span class="pl-nota">${esc(e.notaPlan)}</span>` : ''}
           <span class="pl-meta c-${c}">${conDia ? '📅 ' + esc(e.fecha ? diaTxt(fechaHora(e.fecha)) : 'Sin día') + ' · ' : ''}${esc(CONF[c].txt)}${e.hora ? ' · ' + esc(e.hora) : ''}${conDia && e.quien ? ' · ' + esc(e.quien) : ''}${antes ? ` · <span class="pl-movida">↪ antes, ${esc(diaTxt(antes))}</span>` : ''}</span>
@@ -664,6 +693,7 @@
         <div class="editor-head"><h2>${esc(e.nombre || 'Visita')}</h2><button type="button" class="icon-btn" data-cerrar>✕</button></div>
         ${e.nombreZh ? `<p class="zh">${esc(e.nombreZh)}</p>` : ''}
         <p class="pl-loc grande">📍 ${esc(ubicPlan(e))}</p>
+        ${botonesWx(e)}
         <div class="campo"><span class="lbl">¿Nos ha confirmado la visita?</span>${radios('confirmacion', confDe(e), Object.entries(CONF).map(([k, o]) => [k, o.ico + ' ' + o.corto]))}</div>
         <div class="campos">
           <label class="campo half"><span class="lbl">Día de la visita</span><input class="input" type="date" name="fecha" value="${esc(e.fecha || '')}"></label>
@@ -758,6 +788,7 @@
               ${badgeIdent(e)}
               <span class="emp-top"><span class="num">${orden}</span><b>${esc(e.nombre || 'Sin nombre')}</b></span>
               <span class="muted">Pab. ${esc(pabTxt(e.pabellon) || '¿?')} · Stand ${esc(e.stand || '¿?')}</span>
+              ${avisoFabrica(e)}
               <span class="tags">${badgeNivel(e)}${badgeComp(principal(e))}${badgeLinea(e)}${marcasEmpresa(principal(e))}</span>
             </button>
             <div class="emp-pie">${botonVisita(e)}</div>
@@ -908,7 +939,11 @@
     m.id = 'modal';
     m.className = 'modal ' + (clase || '');
     m.innerHTML = `<div class="sheet">${html}</div>`;
-    m.addEventListener('click', e => { if (e.target === m || e.target.closest('[data-cerrar]')) cerrarModal(); });
+    m.addEventListener('click', e => {
+      const cp = e.target.closest('[data-copiar]');
+      if (cp) { e.preventDefault(); copiarTexto(cp.dataset.copiar, cp.dataset.msg); return; }
+      if (e.target === m || e.target.closest('[data-cerrar]')) cerrarModal();
+    });
     document.body.appendChild(m);
     document.body.classList.add('con-modal');
     return m;
@@ -1009,7 +1044,8 @@
     const comunes = [{ k: 'nombre', label: 'Nombre de la empresa' }, { k: 'nombreZh', label: 'Nombre en chino (opcional)', ph: '上海…' },
       { k: 'ciudad', label: 'Ciudad', ph: 'Shanghái', half: true }, { k: 'pais', label: 'País', half: true }];
     const contacto = [{ k: 'contacto', label: 'Persona de contacto', ph: 'Ej: Wang Li', half: true }, { k: 'rol', label: 'Rol', ph: 'Ej: Director comercial', half: true },
-      { k: 'email', label: 'Email', type: 'email', half: true }, { k: 'telefono', label: 'Teléfono', type: 'tel', half: true }, { k: 'web', label: 'Web o WeChat', ph: 'www…' }];
+      { k: 'email', label: 'Email', type: 'email', half: true }, { k: 'telefono', label: 'Teléfono', type: 'tel', half: true }, { k: 'web', label: 'Web', ph: 'www…' },
+      { k: 'wechat', label: 'WeChat (enlace o ID)', ph: 'https://u.wechat.com/…', half: true }, { k: 'movil', label: 'Móvil (sirve para buscarle en WeChat)', type: 'tel', ph: '139 0000 0000', half: true }];
     const opciones = (nombre, val, ops) => `<div class="seg form-seg">${ops.map(([k, t]) => `<label><input type="radio" name="${nombre}" value="${k}" ${val === k ? 'checked' : ''}><span>${t}</span></label>`).join('')}</div>`;
     const radios = (name, val, ops) => `<div class="seg pl-seg">${ops.map(([k, t]) => `<label><input type="radio" name="${name}" value="${esc(k)}" ${val === k ? 'checked' : ''}><span>${esc(t)}</span></label>`).join('')}</div>`;
     const f = fer || {};
@@ -1019,6 +1055,8 @@
       <form class="editor ficha" id="form-ficha">
         <div class="editor-head"><h2>${e ? esc(e.nombre || 'Ficha') : (tipo === 'desguace' ? 'Nuevo desguace' : 'Nueva empresa')}</h2><button type="button" class="icon-btn" data-cerrar>✕</button></div>
         ${fer && fer.id ? badgeIdent(fer) : ''}
+        ${e ? avisoFabrica(e) : ''}
+        ${e ? botonesWx(principal(e)) : ''}
         <div class="campos">
           ${comunes.map(c => campoHTML(c, v)).join('')}
           ${contacto.map(c => campoHTML(c, v)).join('')}
@@ -1233,7 +1271,7 @@
       return;
     }
     const cp = e.target.closest('[data-copiar]');
-    if (cp) { copiarTexto(cp.dataset.copiar); return; }
+    if (cp) { copiarTexto(cp.dataset.copiar, cp.dataset.msg); return; }
     const bv = e.target.closest('[data-visita]');
     if (bv) { toggleVisita(bv.dataset.visita); return; }
     const t = e.target.closest('[data-tab],[data-set],[data-nuevo],[data-editar],[data-plan],[data-ficha],[data-visitado],[data-present],[data-accion]');
