@@ -446,3 +446,11 @@ a.menu-item { text-decoration: none; color: inherit; }
 .ley.desg { background: #DCF2E6; border-color: #A9DDBF; }
 .bloque-feria { background: #F5F2FC; border: 1px solid #DCD2F0; border-radius: 14px; padding: 12px; margin-bottom: 12px; display: grid; gap: 8px; }
 .bloque-feria .campos { margin-bottom: 0; }
+
+/* v1.14: sin separar, marca de posible separación y de Mr. Xie */
+.badge.sep { background: #FFF1E3; color: #8A4B12; }
+.badge.xie { background: #ECE5F8; color: #45317F; }
+.ley.sep { background: #FFF1E3; color: #8A4B12; }
+.ley.xie { background: #ECE5F8; color: #45317F; }
+.campo.check { display: flex; align-items: center; gap: 8px; margin: 4px 0 10px; font-size: 14px; }
+.campo.check input { width: 18px; height: 18px; }

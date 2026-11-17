@@ -581,7 +581,7 @@
       <button class="pl-item c-${c} ${esDesg(e) ? 'desg' : ''}" data-plan="${esc(e.id)}">
         <span class="pl-estado" title="${esc(CONF[c].txt)}">${CONF[c].ico}</span>
         <span class="pl-body">
-          <span class="pl-top"><b>${esc(e.nombre || 'Sin nombre')}</b>${e.rango ? `<span class="badge rango r${esc(e.rango)}">${esc(e.rango)}</span>` : ''}${esDesg(e) ? '<span class="badge desg">♻️ Desguace</span>' : ''}</span>
+          <span class="pl-top"><b>${esc(e.nombre || 'Sin nombre')}</b>${e.rango ? `<span class="badge rango r${esc(e.rango)}">${esc(e.rango)}</span>` : ''}${esDesg(e) ? '<span class="badge desg">♻️ Desguace</span>' : ''}${e.dependeXie ? '<span class="badge xie">Confirma Mr. Xie</span>' : ''}${e.separable ? '<span class="badge sep">⇄ se puede separar</span>' : ''}</span>
           <span class="pl-loc">📍 ${esc(ubicPlan(e))}</span>
           ${e.notaPlan ? `<span class="pl-nota">${esc(e.notaPlan)}</span>` : ''}
           <span class="pl-meta c-${c}">${conDia ? '📅 ' + esc(e.fecha ? diaTxt(fechaHora(e.fecha)) : 'Sin día') + ' · ' : ''}${esc(CONF[c].txt)}${e.hora ? ' · ' + esc(e.hora) : ''}${conDia && e.quien ? ' · ' + esc(e.quien) : ''}${antes ? ` · <span class="pl-movida">↪ antes, ${esc(diaTxt(antes))}</span>` : ''}</span>
@@ -602,7 +602,7 @@
 
   function vistaPlanning() {
     const todas = enPlanning();
-    const filtro = state.filtroPlan || 'todos';
+    const filtro = 'todos';
     const visible = e => filtro === 'todos' || !e.quien || e.quien === 'Juntos' || e.quien === filtro;
     const activas = todas.filter(e => confDe(e) !== 'no');
     const noPueden = todas.filter(e => confDe(e) === 'no' && visible(e));
@@ -644,10 +644,10 @@
           <h2 class="titulo-serif">Planning post feria</h2>
           <p class="muted">La única lista de visitas. Todo está pendiente hasta que cada empresa confirme el día. Pulsa una empresa para confirmarla o cambiarla de día: pasa sola al día nuevo. Para añadir una empresa, usa el botón «🗓️ Planning» de su tarjeta.</p>
           <p class="muted">${activas.length} visitas · ✅ ${n('confirmada')} confirmadas · ⏳ ${n('pendiente')} pendientes${mov ? ' · ↪ ' + mov + ' cambiadas de día' : ''}${todas.length - activas.length ? ' · ❌ ' + (todas.length - activas.length) + ' no pueden' : ''}</p>
-          <div class="leyenda"><span class="ley rA">A · sí o sí</span><span class="ley rB">B · muy recomendable</span><span class="ley rC">C · si hay tiempo</span><span class="ley desg">♻️ Desguace</span></div>
+          <div class="leyenda"><span class="ley rA">A · sí o sí</span><span class="ley rB">B · muy recomendable</span><span class="ley rC">C · si hay tiempo</span><span class="ley desg">♻️ Desguace</span><span class="ley xie">Confirma Mr. Xie</span><span class="ley sep">⇄ se puede separar</span></div>
+          <p class="muted small">Vamos siempre juntos. ⇄ marca las visitas en las que, si hace falta, podemos separarnos.</p>
         </div>
         <div class="seg pl-filtro">${segM('dia', '📅 Por día')}${segM('zona', '📍 Por zona')}</div>
-        <div class="seg pl-filtro">${seg('todos', 'Todos')}${CFG.USUARIOS.map(u => seg(u, u)).join('')}</div>
         <div class="acciones-fila"><button class="btn primary" data-nuevo="visita">+ Añadir otra empresa</button></div>
         ${modo === 'zona' ? porZona() : fechas.map(dia).join('')}
         ${modo !== 'zona' && sinDia.length ? `<div class="card pl-dia"><div class="pl-cab"><b>Sin día</b><span>Opciones por encajar</span></div>${filasPorQuien(sinDia)}</div>` : ''}
@@ -671,6 +671,7 @@
         </div>
         ${movidaDe(e) ? `<p class="muted small espacio">Prevista al principio el ${esc(diaTxt(fechaHora(e.fechaPlan)))}.</p>` : ''}
         <div class="campo"><span class="lbl">Quién va</span>${radios('quien', e.quien || '', QUIENES().map(q => [q, q]))}</div>
+        <label class="campo check"><input type="checkbox" name="separable" ${e.separable ? 'checked' : ''}> <span>⇄ Si hace falta, aquí podemos separarnos</span></label>
         <div class="campos">
           <label class="campo"><span class="lbl">Prioridad</span><select name="rango" class="input">${[['', 'Sin asignar'], ...Object.entries(RANGOS)].map(([k, t]) => `<option value="${k}" ${(e.rango || '') === k ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></label>
           <label class="campo"><span class="lbl">Lugar exacto (si no es la ubicación de la ficha)</span><input class="input" name="lugarVisita" value="${esc(e.lugarVisita || '')}" placeholder="${esc(e.ciudad || '')}"></label>
@@ -684,7 +685,7 @@
       ev.preventDefault();
       const fd = new FormData(form);
       const g = k => String(fd.get(k) || '').trim();
-      const datos = { confirmacion: g('confirmacion') || 'pendiente', fecha: g('fecha'), hora: g('hora'), quien: g('quien'), rango: g('rango'), lugarVisita: g('lugarVisita'), notaPlan: g('notaPlan'), plan: true };
+      const datos = { confirmacion: g('confirmacion') || 'pendiente', fecha: g('fecha'), hora: g('hora'), quien: g('quien'), separable: fd.get('separable') === 'on', rango: g('rango'), lugarVisita: g('lugarVisita'), notaPlan: g('notaPlan'), plan: true };
       const cambioDia = (e.fecha || '') !== datos.fecha;
       if (cambioDia) { const orig = e.fechaPlan || e.fecha || ''; datos.fechaPlan = orig && orig !== datos.fecha ? orig : ''; }
       datos.visita = true;
