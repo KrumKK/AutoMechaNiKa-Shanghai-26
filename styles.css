@@ -468,3 +468,6 @@ a.menu-item { text-decoration: none; color: inherit; }
 .aviso-fab.xie { background: #ECE5F8; border-color: #D3C6EF; color: #45317F; font-weight: 700; }
 .aviso-fab.ok { background: #E6F6EC; border-color: #C5E8D2; color: #1F5E43; font-weight: 700; }
 form.editor .aviso-fab { font-size: 14px; }
+
+/* v1.16: gran zona del viaje */
+.zona-tag { background: #EAF2FB; color: #2D5B78; border-radius: 6px; padding: 0 6px; font-weight: 700; }

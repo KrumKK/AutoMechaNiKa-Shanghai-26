@@ -611,7 +611,7 @@
         <span class="pl-estado" title="${esc(CONF[c].txt)}">${CONF[c].ico}</span>
         <span class="pl-body">
           <span class="pl-top"><b>${esc(e.nombre || 'Sin nombre')}</b>${e.rango ? `<span class="badge rango r${esc(e.rango)}">${esc(e.rango)}</span>` : ''}${esDesg(e) ? '<span class="badge desg">♻️ Desguace</span>' : ''}${e.dependeXie ? '<span class="badge xie">Confirma Mr. Xie</span>' : ''}${e.separable ? '<span class="badge sep">⇄ se puede separar</span>' : ''}${tieneWx(e) ? '<span class="badge wxb">💬 WeChat</span>' : ''}</span>
-          <span class="pl-loc">📍 ${esc(ubicPlan(e))}</span>
+          <span class="pl-loc">📍 ${zonaCorta(e) ? `<b class="zona-tag">${esc(zonaCorta(e))}</b> · ` : ''}${esc(ubicPlan(e))}</span>
           ${e.notaPlan ? `<span class="pl-nota">${esc(e.notaPlan)}</span>` : ''}
           <span class="pl-meta c-${c}">${conDia ? '📅 ' + esc(e.fecha ? diaTxt(fechaHora(e.fecha)) : 'Sin día') + ' · ' : ''}${esc(CONF[c].txt)}${e.hora ? ' · ' + esc(e.hora) : ''}${conDia && e.quien ? ' · ' + esc(e.quien) : ''}${antes ? ` · <span class="pl-movida">↪ antes, ${esc(diaTxt(antes))}</span>` : ''}</span>
         </span>
@@ -658,7 +658,7 @@
         </div>`;
     };
     const sinDia = activas.filter(e => !e.fecha && visible(e)).sort(orden);
-    const ORD_Z = ['hebei', 'canton', 'este', 'chongqing', 'otras', 'fuera', 'sin'];
+    const ORD_Z = ['este', 'canton', 'wuzhou', 'norte', 'pekin', 'chongqing', 'otras', 'fuera', 'sin'];
     const porZona = () => {
       const g = new Map();
       activas.filter(visible).sort((a, b) => ORD_Z.indexOf(zonaDe(a)[0]) - ORD_Z.indexOf(zonaDe(b)[0]) || nat(a.fecha || '9999', b.fecha || '9999') || nat(a.nombre, b.nombre))
@@ -692,7 +692,7 @@
       <form class="editor" id="form-plan">
         <div class="editor-head"><h2>${esc(e.nombre || 'Visita')}</h2><button type="button" class="icon-btn" data-cerrar>✕</button></div>
         ${e.nombreZh ? `<p class="zh">${esc(e.nombreZh)}</p>` : ''}
-        <p class="pl-loc grande">📍 ${esc(ubicPlan(e))}</p>
+        <p class="pl-loc grande">📍 ${zonaCorta(e) ? `<b class="zona-tag">${esc(zonaCorta(e))}</b> · ` : ''}${esc(ubicPlan(e))}</p>
         ${botonesWx(e)}
         <div class="campo"><span class="lbl">¿Nos ha confirmado la visita?</span>${radios('confirmacion', confDe(e), Object.entries(CONF).map(([k, o]) => [k, o.ico + ' ' + o.corto]))}</div>
         <div class="campos">
@@ -727,20 +727,39 @@
   }
 
   // ═══════════ A visitar empresas (visitas a fábrica) ═══════════
+  // Grandes zonas del viaje, en el orden en que las recorremos (pensado para quien no conoce la geografía china)
   const ZONAS = [
-    ['hebei', 'Hebei', /\b(hebei|cangzhou|hejian|baoding|xingtai|langfang|xianghe|anping|qinghe|shijiazhuang|tangshan|handan)\b/],
-    ['canton', 'Cantón / Guangdong', /\b(guangdong|guangzhou|cant[oó]n|foshan|shenzhen|dongguan|huadu|wuzhou|zhongshan|jiangmen|zhuhai)\b/],
-    ['este', 'Este (Shanghái, Zhejiang, Jiangsu, Anhui)', /\b(shanghai|shanghái|minhang|zhejiang|jiangsu|anhui|taizhou|hangzhou|ningbo|wenzhou|yuhuan|jiangshan|suzhou|nanjing|changzhou|jinhua|quzhou|zhuji|wuhu|huangshan|yangzhou|zhangjiagang|suqian|xinchang|binhai|wuxi|jiaxing|shaoxing)\b/],
-    ['chongqing', 'Chongqing / Sichuan', /\b(chongqing|sichuan|chengdu|mianyang|nanchong)\b|南充|绵阳/],
-    ['otras', 'Otras zonas de China', /./]
+    ['wuzhou', 'Wuzhou (Guangxi), 1,5 h en tren desde Cantón', 'Wuzhou', /\b(wuzhou|guangxi)\b/],
+    ['norte', 'Norte (Henan y Hebei, al sur de Pekín)', 'Norte', /\b(hebei|henan|puyang|qingfeng|cangzhou|hejian|baoding|xingtai|langfang|xianghe|anping|qinghe|julu|shijiazhuang|tangshan|handan|tianjin|hengshui)\b/],
+    ['pekin', 'Pekín', 'Pekín', /\b(pekin|beijing|fengtai|chaoyang|daxing)\b/],
+    ['este', 'Shanghái y alrededores', 'Shanghái', /\b(shanghai|minhang|hongqiao|zhejiang|jiangsu|anhui|taizhou|hangzhou|ningbo|wenzhou|yuhuan|jiangshan|suzhou|nanjing|changzhou|jinhua|quzhou|zhuji|wuhu|huangshan|yangzhou|zhangjiagang|suqian|xinchang|binhai|wuxi|jiaxing|shaoxing)\b/],
+    ['canton', 'Cantón (Guangdong)', 'Cantón', /\b(guangdong|guangzhou|canton|foshan|shenzhen|dongguan|huadu|baiyun|panyu|yuexiu|nanhai|lishui|shishan|zhongshan|jiangmen|zhuhai)\b/],
+    ['chongqing', 'Chongqing / Sichuan', 'Chongqing', /\b(chongqing|sichuan|chengdu|mianyang|nanchong|tongnan)\b|南充|绵阳/],
+    ['otras', 'Otras zonas de China', 'China', /./]
   ];
+  const SUBZONAS = [['baiyun', 'Baiyun'], ['huadu', 'Huadu'], ['foshan', 'Foshan'], ['nanhai', 'Foshan'], ['panyu', 'Panyu'], ['yuexiu', 'centro'], ['shenzhen', 'Shenzhen'],
+    ['puyang', 'Puyang, Henan'], ['qingfeng', 'Puyang, Henan'], ['xingtai', 'Xingtai, Hebei'], ['julu', 'Julu, Hebei'], ['qinghe', 'Qinghe, Hebei'], ['hejian', 'Hejian, Hebei'],
+    ['anping', 'Anping, Hebei'], ['xianghe', 'Xianghe, Hebei'], ['tianjin', 'Tianjin'], ['wuxi', 'Wuxi'], ['jiangshan', 'Jiangshan, Zhejiang'], ['taizhou', 'Taizhou']];
+  const sinTildes = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   function zonaDe(e) {
     const f = tipoDe(e) === 'seleccionada' ? empresaFeria(e) : null;
-    const texto = [e.lugarVisita, e.ciudad, e.direccion, f && f.ciudad, e.nombre].filter(Boolean).join(' ').toLowerCase();
-    if (e.pais && !/china/i.test(e.pais)) return ['fuera', 'Fuera de China'];
-    if (!e.ciudad && !e.direccion && !(f && f.ciudad) && !ZONAS.slice(0, 4).some(z => z[2].test(texto))) return ['sin', 'Sin ciudad indicada'];
-    const z = ZONAS.find(z => z[2].test(texto));
-    return [z[0], z[1]];
+    const texto = sinTildes([e.lugarVisita, e.ciudad, e.direccion, f && f.ciudad, e.nombre].filter(Boolean).join(' '));
+    if (e.pais && !/china/i.test(e.pais)) return ['fuera', 'Fuera de China', 'Fuera de China'];
+    if (!e.ciudad && !e.direccion && !e.lugarVisita && !(f && f.ciudad) && !ZONAS.slice(0, 6).some(z => z[3].test(texto))) return ['sin', 'Sin ciudad indicada', ''];
+    const z = ZONAS.find(z => z[3].test(texto));
+    return [z[0], z[1], z[2], texto];
+  }
+  // «Cantón · Foshan», «Norte · Hejian, Hebei»: la gran zona y, si se sabe, dónde exactamente
+  function zonaCorta(e) {
+    const [k, , corta, texto] = zonaDe(e);
+    if (!corta) return '';
+    if (k === 'pekin' || k === 'wuzhou') return corta;
+    const t = texto || '';
+    // la subzona que aparece antes en el texto (el lugar de la visita va primero)
+    const sub = (SUBZONAS.map(([c, n]) => [t.search(new RegExp('\\b' + c + '\\b')), n]).filter(([i]) => i >= 0).sort((x, y) => x[0] - y[0])[0] || [])[1];
+    if (k === 'norte' && !sub) return corta + ' · ' + (/henan/.test(t) ? 'Henan' : 'Hebei');
+    if (k === 'este') return /shanghai|hongqiao|minhang/.test(t) ? 'Shanghái' : 'Este de China' + (sub ? ' · ' + sub : '');
+    return sub && sub.toLowerCase() !== corta.toLowerCase() ? corta + ' · ' + sub : corta;
   }
   async function toggleVisita(id) {
     const e = principal(empresaPorId(id));
